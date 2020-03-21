@@ -1023,7 +1023,7 @@ class LDASsetup:
         sp.call(cmd,shell=True)
         optinxny=self._parseInputFile('optimized_distribution')
         if (int(optinxny['NX']) == 1):
-          if int(optinxny['NY']) != _ntask :
+          if int(optinxny['NY']) != _ntasks :
              self.rqdRmInp['ntasks']= int(optinxny['NY']) + int(self.optRmInp['n_oservers'])
              print 'adjust ntasks %d for cubed-sphere grid' % int(self.rqdRmInp['ntasks'])
         
