@@ -407,7 +407,7 @@ class LDASsetup:
         if 'n_oservers' not in self.optRmInp :
            self.optRmInp['n_oservers'] = '0'
 
-        _n_oservers = int(self.rqdRmInp['n_oservers'])    
+        _n_oservers = int(self.optRmInp['n_oservers'])    
         assert (_ntasks - _n_oservers) > _n_oservers , "number of model tasks should be greater than " + \
                              " the number of oserver tasks"
         _ntasks = None
