@@ -301,7 +301,7 @@ while ( $counter <= ${NUM_SGMT} )
    $GEOSBIN/RmShmKeys_sshmpi.csh
 
    set IOSERVER_OPTIONS = ""
-   if ($N_OSERVERS /= 0) then
+   if ($N_OSERVERS > 0) then
       set IOSERVER_OPTIONS = "--npes_model $numprocs --npes_output_server $N_OSERVERS"
    endif
 
