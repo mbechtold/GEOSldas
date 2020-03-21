@@ -45,6 +45,7 @@ setenv    HOMDIR     $EXPDIR/run/
 setenv    SCRDIR     $EXPDIR/scratch
 setenv    MODEL      MY_MODEL
 @         NENS  =    MY_ENSEMBLE
+@         N_OSERVERS  =  MY_OSERVERS
 setenv    MYNAME `finger $USER | cut -d: -f3 | head -1`
 setenv    NODAILIES  MY_MONTHLY
 
@@ -95,7 +96,8 @@ endif
 #                      Domain Decomposition
 #######################################################################
 
-set numprocs = `head -n 20 $HOMDIR/lenkf.j | grep ntasks | cut -d'=' -f2`
+set total_tasks = `head -n 20 $HOMDIR/lenkf.j | grep ntasks | cut -d'=' -f2`
+@ numprocs = $total_tasks - $N_OSERVERS
 if( -e IMS.rc ) then
    set oldtasks = `head -n 1 IMS.rc`
    if($numprocs != $oldtasks) then
@@ -297,8 +299,14 @@ while ( $counter <= ${NUM_SGMT} )
    endif
    
    $GEOSBIN/RmShmKeys_sshmpi.csh
-   $RUN_CMD $numprocs $GEOSBIN/GEOSldas.x
-   
+
+   set IOSERVER_OPTIONS = ""
+   if ($N_OSERVERS /= 0) then
+      set IOSERVER_OPTIONS = "--npes_model $numprocs --npes_output_server $N_OSERVERS"
+   endif
+
+   $RUN_CMD $total_tasks $GEOSBIN/GEOSldas.x $IOSERVER_OPTIONS
+
    if( -e EGRESS.ldas ) then
       set rc = 0
    else

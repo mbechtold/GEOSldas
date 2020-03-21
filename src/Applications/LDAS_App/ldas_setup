@@ -54,7 +54,7 @@ class LDASsetup:
         # ------
         # Optional resource manager input fields
         # ------
-        optSlurmInpKeys = ['job_name', 'constraint','qos']
+        optSlurmInpKeys = ['job_name', 'constraint','qos', 'n_oservers']
 
         # ------
         # ./ldsetup.py sample ...
@@ -392,9 +392,7 @@ class LDASsetup:
         assert self.rqdRmInp['walltime']
         ## ntasks is a +ve integer
         _ntasks = int(self.rqdRmInp['ntasks'])
-        assert _ntasks>0
         self.rqdRmInp['ntasks'] = _ntasks
-        _ntasks = None
 
         # print rqd rm inputs
         if self.verbose:
@@ -403,9 +401,17 @@ class LDASsetup:
 
         # OPTIONAL inputs
         for key in inpDictFromFile:
-            assert key in optSlurmInpKeys, \
+           assert key in optSlurmInpKeys, \
                     'unknown resource manager key [%s]' % key
-            self.optRmInp[key] = inpDictFromFile[key]
+           self.optRmInp[key] = inpDictFromFile.pop(key)
+        if 'n_oservers' not in self.optRmInp :
+           self.optRmInp['n_oservers'] = '0'
+
+        _n_oservers = int(self.rqdRmInp['n_oservers'])    
+        assert (_ntasks - _n_oservers) > _n_oservers , "number of model tasks should be greater than " + \
+                             " the number of oserver tasks"
+        _ntasks = None
+        _n_oservers = None
 
         # print opt rm inputs
         if self.verbose:
@@ -1008,17 +1014,18 @@ class LDASsetup:
 
         # get optimzed NX and IMS
         if os.path.isfile('optimized_distribution'):
-            os.remove('optimized_distribution')
+           os.remove('optimized_distribution')
     
         print  "Optimizing... decomposition of processes.... \n"
-        cmd = './preprocess_ldas.x optimize '+ self.inpdir+'/tile.data '+ str(self.rqdRmInp['ntasks'])
+        _ntasks = int(self.rqdRmInp['ntasks']) - int(self.optRmInp['n_oservers'])
+        cmd = './preprocess_ldas.x optimize '+ self.inpdir+'/tile.data '+ str(_ntasks)
         print "cmd:   " + cmd
         sp.call(cmd,shell=True)
         optinxny=self._parseInputFile('optimized_distribution')
         if (int(optinxny['NX']) == 1):
-            if int(optinxny['NY']) != int(self.rqdRmInp['ntasks']):
-                self.rqdRmInp['ntasks']=optinxny['NY']
-                print 'adjust ntasks %d for cubed-sphere grid' % int(self.rqdRmInp['ntasks'])
+          if int(optinxny['NY']) != _ntask :
+             self.rqdRmInp['ntasks']= int(optinxny['NY']) + int(self.optRmInp['n_oservers'])
+             print 'adjust ntasks %d for cubed-sphere grid' % int(self.rqdRmInp['ntasks'])
         
         if os.path.isfile('IMS.rc') :
             shutil.move('IMS.rc', self.rundir+'/')
@@ -1351,6 +1358,8 @@ class LDASsetup:
                         fout.write(line.replace('MY_WALLTIME',self.rqdRmInp['walltime']))
                     elif 'MY_NTASKS' in line :
                         fout.write(line.replace('MY_NTASKS',str(self.rqdRmInp['ntasks'])))
+                    elif 'MY_OSERVERS' in line :
+                        fout.write(line.replace('MY_OSERVERS',str(self.optRmInp['n_oservers'])))
                     elif 'MY_QOS' in line :
                         if 'allnccs' not in my_qos:
                            fout.write(line.replace('MY_QOS',my_qos))
@@ -1550,7 +1559,8 @@ def _printRmInputKeys(rqdRmInpKeys, optRmInpKeys):
     print '# (1) Default job_name is "exp_id"'
     print '# (2) Default constraint is "hasw"'
     print '# (3) Do not specify qos (quality-of-service) by default.  Specify "debug" for faster but limited service.'
-    print '#'
+    print '# (4) Default n_oservers is 0 which means it will not use extra output server. The model uses (ntasks - n_oservers)'
+    print '# '
     for key in optRmInpKeys:
         print '#'+key.ljust(23), ':'
     
