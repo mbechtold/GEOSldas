@@ -2318,6 +2318,8 @@ contains
  
     ! if no perturbation, do nothing
     if(internal%PERTURBATIONS == 0) then
+       call MAPL_TimerOff(MAPL, "Run_ApplyPrognPert")
+       call MAPL_TimerOff(MAPL, "TOTAL")
        RETURN_(ESMF_SUCCESS)
     endif
     ! Pointers to imports
@@ -2446,7 +2448,7 @@ contains
             !Weiyuan notes:  propagate_pert is called in GenerateRaw
             diagnose_pert_only=.true.                                          &
             )
-       call MAPL_TimerOn(MAPL, '-GetPert')
+       call MAPL_TimerOff(MAPL, '-GetPert')
 
        ! -convert-nxt-gridded-perturbations-to-tile-
        call MAPL_TimerOn(MAPL, '-LocStreamTransform')
