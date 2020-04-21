@@ -27,12 +27,11 @@ setenv ESMADIR    $EXPDIR/build/
 setenv GEOSBIN    $ESMADIR/bin/
 source $GEOSBIN/g5_modules
 
-setenv I_MPI_DAPL_UD enable
-
 setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${BASEDIR}/${ARCH}/lib
 if ( -e /etc/os-release ) then
   module load nco/4.8.1
 else
+  setenv I_MPI_DAPL_UD enable
   module load other/nco-4.6.8-gcc-5.3-sp3
 endif
 setenv RUN_CMD "$GEOSBIN/esma_mpirun -np "
@@ -46,6 +45,7 @@ setenv    SCRDIR     $EXPDIR/scratch
 setenv    MODEL      MY_MODEL
 @         NENS  =    MY_ENSEMBLE
 @         N_OSERVERS  =  MY_OSERVERS
+@         N_WRITERS  =  MY_WRITERS
 setenv    MYNAME `finger $USER | cut -d: -f3 | head -1`
 setenv    NODAILIES  MY_MONTHLY
 
@@ -84,6 +84,9 @@ cd $SCRDIR
 /bin/cp     $HOMDIR/cap_restart .
 /bin/cp -f  $HOMDIR/*.rc .
 /bin/cp -f  $HOMDIR/*.nml .
+/bin/cp -f  $GEOSBIN/GEOSldas.x .
+/bin/cp -f  $GEOSBIN/pfio_writer.x .
+
 
 set LSMCHOICE = `grep -n -m 1 "LSM_CHOICE" $HOMDIR/LDAS.rc | cut -d':' -f3`
 
@@ -97,7 +100,7 @@ endif
 #######################################################################
 
 set total_tasks = `head -n 20 $HOMDIR/lenkf.j | grep ntasks | cut -d'=' -f2`
-@ numprocs = $total_tasks - $N_OSERVERS
+@ numprocs = $total_tasks - ($N_OSERVERS + $N_WRITERS)
 if( -e IMS.rc ) then
    set oldtasks = `head -n 1 IMS.rc`
    if($numprocs != $oldtasks) then
@@ -289,12 +292,12 @@ while ( $counter <= ${NUM_SGMT} )
    # ---------
    if( $DEBUGGER == 1) then
        module load tool/tview-2018.0.5
-       totalview $GEOSBIN/GEOSldas.x
+       totalview ./GEOSldas.x
        exit
    endif 
    if( $DEBUGGER == 2) then
        module load tool/arm-forge-19.0.3
-       ddt $GEOSBIN/GEOSldas.x
+       ddt ./GEOSldas.x
        exit
    endif
    
@@ -304,8 +307,8 @@ while ( $counter <= ${NUM_SGMT} )
    if ($N_OSERVERS > 0) then
       set IOSERVER_OPTIONS = "--npes_model $numprocs --npes_output_server $N_OSERVERS"
    endif
-
-   $RUN_CMD $total_tasks $GEOSBIN/GEOSldas.x $IOSERVER_OPTIONS
+   @total_tasks = $total_tasks - $N_WRITERS
+   $RUN_CMD $total_tasks ./GEOSldas.x $IOSERVER_OPTIONS
 
    if( -e EGRESS.ldas ) then
       set rc = 0

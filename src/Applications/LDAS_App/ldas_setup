@@ -54,7 +54,7 @@ class LDASsetup:
         # ------
         # Optional resource manager input fields
         # ------
-        optSlurmInpKeys = ['job_name', 'constraint','qos', 'n_oservers']
+        optSlurmInpKeys = ['job_name', 'constraint','qos', 'n_oservers', 'n_writers']
 
         # ------
         # ./ldsetup.py sample ...
@@ -406,9 +406,11 @@ class LDASsetup:
            self.optRmInp[key] = inpDictFromFile.pop(key)
         if 'n_oservers' not in self.optRmInp :
            self.optRmInp['n_oservers'] = '0'
+        if 'n_writers' not in self.optRmInp :
+           self.optRmInp['n_writers'] = '0'
 
         _n_oservers = int(self.optRmInp['n_oservers'])    
-        assert (_ntasks - _n_oservers) >= _n_oservers , "number of model tasks should be greater than " + \
+        assert _ntasks >= _n_oservers , "number of model tasks should be greater than " + \
                              " the number of oserver tasks"
         _ntasks = None
         _n_oservers = None
@@ -1024,14 +1026,14 @@ class LDASsetup:
            os.remove('optimized_distribution')
     
         print  "Optimizing... decomposition of processes.... \n"
-        _ntasks = int(self.rqdRmInp['ntasks']) - int(self.optRmInp['n_oservers'])
+        _ntasks = int(self.rqdRmInp['ntasks'])
         cmd = './preprocess_ldas.x optimize '+ self.inpdir+'/tile.data '+ str(_ntasks)
         print "cmd:   " + cmd
         sp.call(cmd,shell=True)
         optinxny=self._parseInputFile('optimized_distribution')
         if (int(optinxny['NX']) == 1):
           if int(optinxny['NY']) != _ntasks :
-             self.rqdRmInp['ntasks']= int(optinxny['NY']) + int(self.optRmInp['n_oservers'])
+             self.rqdRmInp['ntasks']= int(optinxny['NY']) 
              print 'adjust ntasks %d for cubed-sphere grid' % int(self.rqdRmInp['ntasks'])
         
         if os.path.isfile('IMS.rc') :
@@ -1369,9 +1371,12 @@ class LDASsetup:
                     elif 'MY_WALLTIME' in line :
                         fout.write(line.replace('MY_WALLTIME',self.rqdRmInp['walltime']))
                     elif 'MY_NTASKS' in line :
-                        fout.write(line.replace('MY_NTASKS',str(self.rqdRmInp['ntasks'])))
+                        _ntasks = int(self.rqdRmInp['ntasks']) + int(self.optRmInp['n_oservers']) + int(self.optRmInp['n_writers'])
+                        fout.write(line.replace('MY_NTASKS',str(_ntasks)))
                     elif 'MY_OSERVERS' in line :
                         fout.write(line.replace('MY_OSERVERS',str(self.optRmInp['n_oservers'])))
+                    elif 'MY_WRITERS' in line :
+                        fout.write(line.replace('MY_WRITERS',str(self.optRmInp['n_writers'])))
                     elif 'MY_QOS' in line :
                         if 'allnccs' not in my_qos:
                            fout.write(line.replace('MY_QOS',my_qos))
