@@ -307,7 +307,7 @@ while ( $counter <= ${NUM_SGMT} )
    if ($N_OSERVERS > 0) then
       set IOSERVER_OPTIONS = "--npes_model $numprocs --npes_output_server $N_OSERVERS"
    endif
-   @total_tasks = $total_tasks - $N_WRITERS
+   @ total_tasks = $total_tasks - $N_WRITERS
    $RUN_CMD $total_tasks ./GEOSldas.x $IOSERVER_OPTIONS
 
    if( -e EGRESS.ldas ) then
