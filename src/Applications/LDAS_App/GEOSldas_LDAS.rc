@@ -38,7 +38,7 @@ LSM_CHOICE: 1
 #
 #      Specify extremities of lat/lon rectangle:
 #         Max lat/lon range: lon=-180:180, lat=-90:90.
-#      If only whitelist should be used, specify dummy valuessuch that:
+#      If only whitelist should be used, specify dummy values such that:
 #         MINLON > MAXLON and MINLAT > MAXLAT.
 #
 # MINLON: -180.
@@ -46,7 +46,7 @@ LSM_CHOICE: 1
 # MINLAT:  -90.
 # MAXLAT:   90.
 #
-#      Specify path and filenames for blacklist and whitelist files:
+#      Path and filenames for blacklist and whitelist files.
 #      (May leave blank.)
 #
 # BLACK_FILE: '' 
@@ -63,8 +63,8 @@ MET_HINTERP: 1
 
 # ---- Specify if running model only or data assimilation
 #
-#  NO  : model only (DEFAULT; with --runmodel option)
-#  YES : assimilation (without --runmodel option)
+#  NO  : model only, with or without perturbations (default)
+#  YES : assimilation (full land analysis or just processing of obs for "innovations" output)
 #
 LAND_ASSIM: NO
 
@@ -109,7 +109,7 @@ FIRST_ENS_ID: 0
 
 # ---- Job segments: Length
 #
-#      Specify period between output of restart files.  (GEOSldas.x shuts down and restarts.)
+#      Specify period between GEOSldas.x shutdown and restart.
 #      Default is the entire simulation period (END_DATE minus BEG_DATE).
 #      Format:            yyyymmdd hhmmss
 #
@@ -123,6 +123,17 @@ FIRST_ENS_ID: 0
 #      Default is 1.
 #
 # NUM_SGMT: 1
+
+
+# ---- CHECKPOINT file output
+#
+#      By default, CHECKPOINT (restart) files are are written at the end of each job segment. 
+#      Restart files can also be written before exiting GEOSldas.x. 
+#      The following resource parameters specify the frequency and reference time and date.
+#
+# RECORD_FREQUENCY: 0240000              # hhhmmss          (can be greater than 1 day!)
+# RECORD_REF_TIME:   000000              #  hhmmss          (reference time-of-day)
+# RECORD_REF_DATE:  19790101 000000      # yyyymmdd hhmmss  (date/time after which checkpoints are written)
 
 
 # ---- Output: Write log file (YES/NO)?
@@ -163,10 +174,6 @@ SURFRC: LDAS.rc
 # ---- No dycore for offline
 #
 DYCORE: none
-
-# ---- Only one surface level
-#
-LM: 1
 
 # ---- For MAPL_RestartOptional
 #

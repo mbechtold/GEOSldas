@@ -53,6 +53,7 @@ module LDAS_TileCoordRoutines
   public :: get_tile_num_from_latlon
   public :: get_ij_ind_from_latlon
   public :: tile2grid
+  public :: tile2grid_simple
   public :: tile_mask_grid
   public :: grid2tile, grid2tile_real8
   public :: is_cat_in_box
@@ -1546,7 +1547,7 @@ contains
     ! If input argument "reorder" is ".false." and "pfaf_system=0", assume that tiles have 
     ! already been reordered.  Check for obvious violations and only return "N_tiles_cont".
     ! 
-    ! Typically done only by the master process (because the re-ordering requires
+    ! Typically done only by the root process (because the re-ordering requires
     ! a second copy of the full domain tile coord structure).
     !
     ! reichle, 26 June 2012
@@ -2602,6 +2603,50 @@ contains
     
   end subroutine tile2grid
   
+  subroutine tile2grid_simple( N_tile, tile_coord, tile_grid, tile_data, grid_data)
+    ! no interpolation or weighted. simply assign the tile value to grid
+    implicit none
+    
+    integer, intent(in) :: N_tile
+    
+    type(tile_coord_type), dimension(:), pointer :: tile_coord  ! input
+    
+    type(grid_def_type), intent(in) :: tile_grid
+    
+    real, dimension(N_tile), intent(in) :: tile_data
+    
+    real, dimension(tile_grid%N_lon,tile_grid%N_lat), intent(out) :: grid_data
+        
+    ! local variables
+    
+    integer :: n, i, j, off_i, off_j
+    real, parameter :: no_data= -9999.   
+    character(len=*), parameter :: Iam = 'tile2grid_simple'
+    character(len=400) :: err_msg
+
+    ! ------------------------------------
+    
+    if (size(tile_coord)/=N_tile) then
+       err_msg = 'tile_coord and tile_data do not match.'
+       call ldas_abort(LDAS_GENERIC_ERROR, Iam, err_msg)
+    end if
+    !
+    ! adjust for 0-based indexing (eg., EASE grids)
+    !
+    off_i = tile_grid%i_offg + (tile_grid%ind_base - 1)
+    off_j = tile_grid%j_offg + (tile_grid%ind_base - 1)
+    
+    ! loop through tile space
+
+    grid_data = no_data
+    do n=1,N_tile
+       i = tile_coord(n)%i_indg - off_i
+       j = tile_coord(n)%j_indg - off_j
+       grid_data(i,j) = tile_data(n)
+    end do
+    
+  end subroutine tile2grid_simple
+
   ! *******************************************************************
   subroutine tile_mask_grid( tile_grid, N_tile, i_indgs,j_indgs, grid_data)
     

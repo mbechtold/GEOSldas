@@ -9,7 +9,7 @@ module clsm_ensdrv_out_routines
   ! reichle, 22 Aug 2014
 
   use LDAS_ensdrv_globals,              ONLY:     &
-       log_master_only,                           &
+       log_root_only,                             &
        logunit,                                   &
        logit
   
@@ -26,16 +26,12 @@ module clsm_ensdrv_out_routines
        mwRTM_param_type
 
   use LDAS_ensdrv_mpi,                  ONLY:     &
-       master_proc,                               &
+       root_proc,                                 &
        numprocs
 
   use LDAS_DateTimeMod,                 ONLY:    &
        date_time_type
   
-  use LDAS_ensdrv_init_routines,        ONLY:     &
-       clsm_ensdrv_get_command_line,              &
-       add_domain_to_path
-
   use LDAS_ensdrv_functions,            ONLY:     &
        get_io_filename
        
@@ -56,7 +52,7 @@ contains
   
   ! ********************************************************************
 
-  subroutine init_log( myid, numprocs, master_proc )
+  subroutine init_log( myid, numprocs, root_proc )
     
     ! open file for output log, write a few things
 
@@ -67,7 +63,7 @@ contains
     implicit none
     
     integer, intent(in) :: myid, numprocs
-    logical, intent(in) :: master_proc
+    logical, intent(in) :: root_proc
     
     ! ------------------------------------------------------------------------
     !
@@ -93,7 +89,7 @@ contains
     
     ! interpret parameters from clsm_ensdrv_glob_param
 
-    if (log_master_only .and. (.not. master_proc)) then
+    if (log_root_only .and. (.not. root_proc)) then
        
        logit = .false.
        
@@ -105,7 +101,7 @@ contains
 
     ! stop if logunit is stdout and output is requested for *all* processors
     
-    if ( (.not. log_master_only) .and. (logunit==output_unit) ) then
+    if ( (.not. log_root_only) .and. (logunit==output_unit) ) then
        
        err_msg = 'logunit=output_unit (stdout) together with logging *all* procs is disabled'
        call ldas_abort(LDAS_GENERIC_ERROR, Iam, err_msg)
@@ -120,52 +116,8 @@ contains
        
        if (logunit/=output_unit) then
           
-          ! get command line arguments
-          !
-          ! NOTE: If ldas_abort() is called from clsm_ensdrv_get_command_line() at this
-          !       time, the error message should appear in a file named "fort.[logunit]"
-          
-          call clsm_ensdrv_get_command_line(                 &
-               start_time=start_time,                        &
-               work_path=work_path, exp_domain=exp_domain,   &
-               exp_id=exp_id )         
-          
-          ! augment work_path (must be same as in read_driver_inputs() )
-          
-          io_path = add_domain_to_path( work_path, exp_domain )
-          
-          write (myid_string,'(i4.4)') myid
-          
-          dir_name = 'rc_out'
-          file_tag = 'ldas_log' 
-          file_ext = '.txt'
-          
-          if (.not. master_proc) then
-             
-             file_tag = trim(file_tag) // '_PE' // myid_string
-             
-          end if
-          
-          ! NOTE: If ldas_abort() is called from get_io_filename() at this time, 
-          !       the error message should appear in a file named "fort.[logunit]"      
-          
-          fname = get_io_filename( io_path, exp_id, file_tag, date_time=start_time, &
-               dir_name=dir_name, file_ext=file_ext )
-          
-          open (logunit, file=trim(fname), form='formatted', action='write',        &
-               status='new', iostat=istat)
-          
-          if (istat/=0) then
-             
-             ! this call to ldas_abort() should create a file named "fort.[logunit]"
-             
-             err_msg = 'ERROR opening log file (perhaps it already exists)'
-             call ldas_abort(LDAS_GENERIC_ERROR, Iam, err_msg)
-             
-          end if
-          
-          write (logunit,*)
-          write (logunit,'(400A)') 'logfile: ' // trim(fname)
+          err_msg = 'logunit/=output_unit (stdout) - this should never happen per module LDAS_ensdrv_Globals'
+          call ldas_abort(LDAS_GENERIC_ERROR, Iam, err_msg)
           
        else
           
@@ -189,7 +141,7 @@ contains
        
        write (logunit,*) "process ", myid, " of ", numprocs, " is alive"
        write (logunit,*)
-       write (logunit,*) "process ", myid, ": master_proc=", master_proc
+       write (logunit,*) "process ", myid, ": root_proc=", root_proc
        write (logunit,*)
        
     end if  ! if (logit)

@@ -14,8 +14,10 @@ module GEOS_LandAssimGridCompMod
   
   use ESMF
   use MAPL_Mod
-  use ESMF_CFIOMOD,              only:  ESMF_CFIOstrTemplate
+  use ESMF_CFIOMOD,              only: ESMF_CFIOstrTemplate
   
+  use MAPL_ConstantsMod,         only: MAPL_TICE
+    
   use LDAS_TileCoordType,        only: tile_coord_type
   use LDAS_TileCoordType,        only: grid_def_type
   use LDAS_TileCoordType,        only: T_TILECOORD_STATE
@@ -25,11 +27,11 @@ module GEOS_LandAssimGridCompMod
   use nr_ran2_gasdev,            only: NRANDSEED, init_randseed
   use land_pert_routines,        only: get_init_pert_rseed
   use LDAS_ensdrv_mpi,           only: mpicomm,numprocs,myid
-  use LDAS_ensdrv_mpi,           only: master_proc
+  use LDAS_ensdrv_mpi,           only: root_proc
   use LDAS_ensdrv_mpi,           only: MPI_obs_param_type 
   
   use LDAS_DateTimeMod,          only: date_time_type 
-  use LDAS_ensdrv_Globals,       only: logunit, nodata_generic
+  use LDAS_ensdrv_Globals,       only: logunit, LDAS_is_nodata, nodata_generic
   
   use LDAS_ConvertMod,           only: esmf2ldas
   use LDAS_DriverTypes,          only: met_force_type
@@ -46,6 +48,7 @@ module GEOS_LandAssimGridCompMod
   use catch_bias_types,          only: cat_bias_param_type
   use catch_types,               only: cat_progn_type
   use catch_types,               only: cat_param_type
+  use catch_types,               only: cat_diagS_type
   use catch_types,               only: assignment(=), operator (+), operator (/)
   use clsm_bias_routines,        only: initialize_obs_bias
   use clsm_bias_routines,        only: read_cat_bias_inputs 
@@ -58,7 +61,9 @@ module GEOS_LandAssimGridCompMod
   use clsm_ensupd_enkf_update,   only: output_incr_etc
   use clsm_ensupd_enkf_update,   only: write_smapL4SMaup 
   use clsm_ensdrv_out_routines,  only: init_log, GEOS_output_smapL4SMlmc 
-  use mwRTM_routines,            only : mwRTM_get_Tb, catch2mwRTM_vars
+  use clsm_ensdrv_drv_routines,  only: recompute_diagS
+
+  use mwRTM_routines,            only: mwRTM_get_Tb, catch2mwRTM_vars
 
   use, intrinsic :: ieee_arithmetic    
 
@@ -105,12 +110,16 @@ module GEOS_LandAssimGridCompMod
   real(kind=ESMF_KIND_R8),               allocatable :: pert_rseed_r8(:,:)
   type(mwRTM_param_type),  dimension(:), allocatable :: mwRTM_param
 
-  logical :: mwRTM_all_nodata   ! no data for mwRTM_param
-  logical :: land_assim
-  logical :: mwRTM
+  logical                                            :: mwRTM_all_nodata 
+  logical                                            :: land_assim
+  logical                                            :: mwRTM
+  
+  logical,                               allocatable :: tb_nodata(:)
 
 contains
   
+  ! ******************************************************************************
+
   !BOP
   ! !IROUTINE: SetServices -- Sets ESMF services for component
   ! !INTERFACE:
@@ -739,7 +748,61 @@ contains
        RC=STATUS  )
   _VERIFY(STATUS)
   
+  ! some analysis model diagnostics
 
+  ! - sm_surface_analysis           [m3 m-3]
+  ! - sm_rootzone_analysis          [m3 m-3]
+  ! - sm_profile_analysis           [m3 m-3]
+  ! - surface_temp_analysis         [K]
+  ! - soil_temp_layer1_analysis     [K]
+
+  ! could add other model diagnostics available in "cat_diagS_ensavg" (see below)
+  
+  call MAPL_AddExportSpec(GC                                                      ,&
+       LONG_NAME          = 'soil_moisture_surface_analysis'                      ,&
+       UNITS              = 'm3 m-3'                                              ,&
+       SHORT_NAME         = 'WCSF_ANA'                                            ,&
+       DIMS               = MAPL_DimsTileOnly                                     ,&
+       VLOCATION          = MAPL_VLocationNone                                    ,&
+       RC=STATUS  ) 
+  VERIFY_(STATUS)
+  
+  call MAPL_AddExportSpec(GC                                                      ,&
+       LONG_NAME          = 'soil_moisture_rootzone_analysis'                     ,&
+       UNITS              = 'm3 m-3'                                              ,&
+       SHORT_NAME         = 'WCRZ_ANA'                                            ,&
+       DIMS               = MAPL_DimsTileOnly                                     ,&
+       VLOCATION          = MAPL_VLocationNone                                    ,&
+       RC=STATUS  ) 
+  VERIFY_(STATUS)
+  
+  call MAPL_AddExportSpec(GC                                                      ,&
+       LONG_NAME          = 'soil_moisture_profile_analysis'                      ,&
+       UNITS              = 'm3 m-3'                                              ,&
+       SHORT_NAME         = 'WCPR_ANA'                                            ,&
+       DIMS               = MAPL_DimsTileOnly                                     ,&
+       VLOCATION          = MAPL_VLocationNone                                    ,&
+       RC=STATUS  ) 
+  VERIFY_(STATUS)
+  
+  call MAPL_AddExportSpec(GC                                                      ,&
+       LONG_NAME          = 'ave_catchment_temp_incl_snw_analysis'                ,&
+       UNITS              = 'K'                                                   ,&
+       SHORT_NAME         = 'TPSURF_ANA'                                          ,&
+       DIMS               = MAPL_DimsTileOnly                                     ,&
+       VLOCATION          = MAPL_VLocationNone                                    ,&
+       RC=STATUS  ) 
+  VERIFY_(STATUS)
+  
+  call MAPL_AddExportSpec(GC                                                      ,&
+       LONG_NAME          = 'soil_temperatures_layer_1_analysis'                  ,&
+       UNITS              = 'K'                                                   ,&
+       SHORT_NAME         = 'TSOIL1_ANA'                                          ,&
+       DIMS               = MAPL_DimsTileOnly                                     ,&
+       VLOCATION          = MAPL_VLocationNone                                    ,&
+       RC=STATUS  ) 
+  VERIFY_(STATUS) 
+  
   !
   ! INTERNAL STATE
   !
@@ -919,6 +982,8 @@ contains
     
   end subroutine SetServices
   
+  ! ******************************************************************************
+
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !BOP
   ! !IROTUINE: Initialize -- initialize method for LandAssim GC
@@ -970,7 +1035,7 @@ contains
     character(len=300)   :: seed_fname
     character(len=300)   :: fname_tpl
     character(len=14)    :: datestamp
-    character(len=4)     :: id_string
+    character(len=4)     :: id_string        ! BUG! should be "len=ens_id_width" (reichle, 11 Jun 2020)
     integer              :: nymd, nhms
 
     !! from LDASsa
@@ -994,8 +1059,15 @@ contains
     _VERIFY(STATUS)
     call MAPL_GetResource ( MAPL, FIRST_ENS_ID, Label="FIRST_ENS_ID:", DEFAULT=0, RC=STATUS)
     _VERIFY(STATUS)
-    call init_log( myid, numprocs, master_proc )
+    call init_log( myid, numprocs, root_proc )
+    ! Get number of land tiles
+    call MAPL_Get(MAPL, LocStream=locstream,rc=status)
+    _VERIFY(status)
+    call MAPL_LocStreamGet(locstream, NT_LOCAL=land_nt_local,rc=status)
+    _VERIFY(status)
     
+    allocate(tb_nodata(land_nt_local))
+ 
     if ( .not. land_assim) then   ! to arrive here, mwRTM must be .true.
        ! only need to calculate Tb for HISTORY; no processing of assimilation obs necessary;
        ! generic initialization is sufficient
@@ -1053,18 +1125,13 @@ contains
     _VERIFY(status)
     tcinternal   =>tcwrap%ptr
     tile_coord_l =>tcinternal%tile_coord
-    ! Get number of land tiles
-    call MAPL_Get(MAPL, LocStream=locstream,rc=status)
-    _VERIFY(status)
-    call MAPL_LocStreamGet(locstream, NT_LOCAL=land_nt_local,rc=status)
-    _VERIFY(status)
     
     allocate(Pert_rseed(   NRANDSEED, NUM_ENSEMBLE), source = 0    )
     allocate(Pert_rseed_r8(NRANDSEED, NUM_ENSEMBLE), source = 0.0d0)
     
-    if (master_proc) then
+    if (root_proc) then
        
-       call MAPL_GetResource ( MAPL, fname_tpl, Label="LANDASSIM_OBSPERTRSEED_RESTART_FILE:", DEFAULT="../intput/restart/landassim_obspertrseed%s_rst", RC=STATUS)
+       call MAPL_GetResource ( MAPL, fname_tpl, Label="LANDASSIM_OBSPERTRSEED_RESTART_FILE:", DEFAULT="../input/restart/landassim_obspertrseed%s_rst", RC=STATUS)
        _VERIFY(STATUS)
        call MAPL_DateStampGet( clock, datestamp, rc=status)
        _VERIFY(STATUS)
@@ -1072,10 +1139,10 @@ contains
        read(datestamp(10:13),*) nhms
        nhms = nhms*100
        do ens = 0, NUM_ENSEMBLE-1
-          write(id_string,'(I4.4)') ens + FIRST_ENS_ID
+          write(id_string,'(I4.4)') ens + FIRST_ENS_ID  ! BUG! format string should depend on ens_id_width (reichle, 11 Jun 2020)
           seed_fname = ""
           call ESMF_CFIOStrTemplate(seed_fname,fname_tpl,'GRADS', xid=id_string,nymd=nymd,nhms=nhms,stat=status)
-          call read_pert_rseed(seed_fname,Pert_rseed_r8(:,ens+1))
+          call read_pert_rseed(id_string,seed_fname,Pert_rseed_r8(:,ens+1))
           
           Pert_rseed(:,ens+1) = nint(Pert_rseed_r8(:,ens+1))
           if (all(Pert_rseed(:,ens+1) == 0)) then
@@ -1131,7 +1198,7 @@ contains
        rf2l( l2rf(i) ) = i
     end do
     
-    if (master_proc) then
+    if (root_proc) then
        call read_ens_upd_inputs(                     &
             trim(out_path),                          &
             trim(exp_id),                            &
@@ -1153,9 +1220,16 @@ contains
             out_smapL4SMaup,                         &
             N_obsbias_max                            &
             )
-       call MAPL_GetResource ( MAPL, GridName, Label="GEOSldas.GRIDNAME:", DEFAULT="EASE", RC=STATUS)
-       _VERIFY(STATUS)
-       if (index(GridName,"-CF") /=0) out_smapL4SMaup = .false. ! no out_smap for now if it is cs grid
+
+       if (out_smapL4SMaup) then
+          
+          call MAPL_GetResource ( MAPL, GridName, Label="GEOSldas.GRIDNAME:", DEFAULT="EASE", RC=STATUS)
+          _VERIFY(STATUS)
+          _ASSERT( (NUM_ENSEMBLE>1),                   "out_smapL4SMaup=.true. only works for NUM_ENSEMBLE>1")
+          _ASSERT( (index(GridName,"EASEv2-M09") /=0), "out_smapL4SMaup=.true. only works with EASEv2-M09 tile space")
+          
+       end if
+
     endif
     
     call MPI_BCAST(mwRTM,                 1, MPI_LOGICAL,        0,MPICOMM,mpierr)
@@ -1171,11 +1245,11 @@ contains
     call MPI_BCAST(out_smapL4SMaup,       1, MPI_LOGICAL,        0,MPICOMM,mpierr)
     call MPI_BCAST(N_obsbias_max,         1, MPI_INTEGER,        0,MPICOMM,mpierr)
     
-    if (.not. master_proc)  allocate(obs_param(N_obs_param)) 
+    if (.not. root_proc)  allocate(obs_param(N_obs_param)) 
     
     call MPI_BCAST(obs_param,   N_obs_param, MPI_OBS_PARAM_TYPE, 0,MPICOMM,mpierr)
     
-    if (master_proc) call echo_clsm_ensupd_glob_param(logunit) 
+    if (root_proc) call echo_clsm_ensupd_glob_param(logunit) 
     
     call MAPL_GenericInitialize(gc, import, export, clock, rc=status)
     _VERIFY(status)
@@ -1187,6 +1261,8 @@ contains
     
   end subroutine Initialize
   
+  ! ******************************************************************************
+
   ! !IROUTINE: RUN 
   ! !INTERFACE:
   subroutine RUN ( GC, IMPORT, EXPORT, CLOCK, RC )
@@ -1224,7 +1300,7 @@ contains
     type(date_time_type)              :: date_time_new
     character(len=14)                 :: datestamp
 
-    integer                           :: N_catl, N_catg,N_obsl_max, n_e, i
+    integer                           :: N_catl, N_catg,N_obsl_max, n_e, ii
 
     character(len=300)                :: out_path
     character(len=ESMF_MAXSTR)        :: exp_id
@@ -1236,15 +1312,19 @@ contains
     integer                           :: N_adapt_R
     type(MAPL_LocStream)              :: locstream
 
-    integer,              dimension(:),     allocatable  :: obs_pert_adapt_param
+    integer,              dimension(:),     allocatable :: obs_pert_adapt_param
     real,                 dimension(:,:),   allocatable :: Pert_adapt_R
     real,                 dimension(:,:),   allocatable :: Obs_pert
     type(obs_bias_type),  dimension(:,:,:), allocatable :: obs_bias 
 
     type(cat_progn_type), dimension(:,:),   allocatable :: cat_progn_incr
     type(cat_progn_type), dimension(:),     allocatable :: cat_progn_incr_ensavg
+    type(cat_progn_type), dimension(:),     allocatable :: cat_progn_tmp
 
-    type(obs_type),       dimension(:),     pointer :: Observations_l => null()
+    type(cat_diagS_type), dimension(:),     allocatable :: cat_diagS
+    type(cat_diagS_type), dimension(:),     allocatable :: cat_diagS_ensavg
+
+    type(obs_type),       dimension(:),     pointer     :: Observations_l => null()
 
     logical  :: fresh_incr
     integer  :: N_obsf,N_obsl
@@ -1298,14 +1378,20 @@ contains
     real, dimension(:),pointer :: SNDZN2_incr=>null()
     real, dimension(:),pointer :: SNDZN3_incr=>null()
 
+    !! export for analysis model diagnostics 
 
-    logical                    :: spin
+    real, dimension(:),pointer :: SFMC_ana=>null()     ! surface soil moisture
+    real, dimension(:),pointer :: RZMC_ana=>null()     ! rootzone soil moisture
+    real, dimension(:),pointer :: PRMC_ana=>null()     ! profile soil moisture
+    real, dimension(:),pointer :: TPSURF_ana=>null()   ! tpsurf
+    real, dimension(:),pointer :: TSOIL1_ana=>null()   ! tsoil1
+    
     logical, save              :: firsttime=.true.
     type(cat_bias_param_type)  :: cat_bias_param
     integer                    :: N_catbias
     character(len=300)         :: seed_fname
     character(len=300)         :: fname_tpl
-    character(len=4)           :: id_string
+    character(len=4)           :: id_string        ! BUG! should be "len=ens_id_width" (reichle, 11 Jun 2020)
     integer                    :: ens, nymd, nhms
 
 #ifdef DBG_LANDASSIM_INPUTS
@@ -1379,7 +1465,7 @@ contains
        if (mwRTM) &
             call GEOS_output_smapL4SMlmc( GC, start_time, trim(out_path), trim(exp_id), &
             N_catl, tile_coord_l, cat_param, mwRTM_param )
-       if (master_proc) then 
+       if (root_proc) then 
           ! for out put
           call read_cat_bias_inputs(  trim(out_path), trim(exp_id), start_time, update_type, &
                cat_bias_param, N_catbias)
@@ -1388,7 +1474,7 @@ contains
     
     ! The time is one model time step behind Current time, so record the checkpoint here 
     if (MAPL_RecordAlarmIsRinging(MAPL)) then
-       if (master_proc) then
+       if (root_proc) then
           Pert_rseed_r8 = Pert_rseed
           call MAPL_GetResource ( MAPL, fname_tpl, Label="LANDASSIM_OBSPERTRSEED_CHECKPOINT_FILE:", DEFAULT="landassim_obspertrseed%s_checkpoint", RC=STATUS)
           _VERIFY(STATUS)
@@ -1399,7 +1485,7 @@ contains
           read(datestamp(10:13),*) nhms
           nhms = nhms*100
           do ens = 0, NUM_ENSEMBLE-1
-             write(id_string,'(I4.4)') ens + FIRST_ENS_ID
+             write(id_string,'(I4.4)') ens + FIRST_ENS_ID   ! BUG! format string should be '(I[ens_id_width].[ens_id_width])'  (reichle, 11 Jun 2020)
              seed_fname = ""
              call ESMF_CFIOStrTemplate(seed_fname,fname_tpl,'GRADS', xid=id_string,nymd=nymd,nhms=nhms,stat=status)
              _VERIFY(STATUS)
@@ -1453,9 +1539,9 @@ contains
     _VERIFY(status)
     call MAPL_GetPointer(import, LAI,           'LAI',     rc=status)
     _VERIFY(status)
-!
-! export for incr
-!
+    
+    ! exports for model prognostics increments
+    
     call MAPL_GetPointer(export, TC1_incr,     'TCFSAT_INCR'  ,rc=status)
     _VERIFY(status)
     call MAPL_GetPointer(export, TC2_incr,     'TCFTRN_INCR'  ,rc=status)
@@ -1507,6 +1593,19 @@ contains
     call MAPL_GetPointer(export, SNDZN3_incr,  'SNDZN3_INCR'  ,rc=status)
     _VERIFY(status)
 
+    ! exports for analysis model diagnostics
+    
+    call MAPL_GetPointer(export, TPSURF_ana,  'TPSURF_ANA' ,rc=status)
+    VERIFY_(status)
+    call MAPL_GetPointer(export, TSOIL1_ana,  'TSOIL1_ANA' ,rc=status)
+    VERIFY_(status)
+    call MAPL_GetPointer(export, SFMC_ana,    'WCSF_ANA' ,rc=status)
+    VERIFY_(status)
+    call MAPL_GetPointer(export, RZMC_ana,    'WCRZ_ANA' ,rc=status)
+    VERIFY_(status)
+    call MAPL_GetPointer(export, PRMC_ana,    'WCPR_ANA' ,rc=status)
+    VERIFY_(status)
+
     allocate(met_force(N_catl))
     met_force(:)%Tair    = TA_enavg(:)
     met_force(:)%Qair    = QA_enavg(:)    
@@ -1535,11 +1634,12 @@ contains
             trim(exp_id), start_time, N_catl, numprocs, N_catl_vec, low_ind, obs_bias)
     end if
     
-    allocate(cat_progn_incr(N_catl,NUM_ENSEMBLE))
-    allocate(cat_progn_incr_ensavg(N_catl))
-    allocate(Observations_l(N_obsl_max))
-    
-    !WY note: temporary
+    allocate(cat_progn_incr(       N_catl,     NUM_ENSEMBLE))
+    allocate(cat_progn_incr_ensavg(N_catl                  ))
+    allocate(Observations_l(       N_obsl_max              ))
+
+    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 #ifdef DBG_LANDASSIM_INPUTS
     
     if (firsttime) then
@@ -1587,6 +1687,7 @@ contains
        call MAPL_VarWrite(unit, tilegrid, met_force(:)%wind, mask=mask, rc=status); _VERIFY(STATUS)
        call MAPL_VarWrite(unit, tilegrid, met_force(:)%RefH, mask=mask, rc=status); _VERIFY(STATUS)
        
+
        unit = GETFILE( "landassim_catprogn_inputs.bin", form="unformatted", RC=STATUS )
        _VERIFY(STATUS)
        
@@ -1653,6 +1754,9 @@ contains
     endif
     
 #endif   ! DBG_LANDASSIM_INPUTS
+
+    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
     
     call get_enkf_increments(                                              &
          date_time_new,                                                    &
@@ -1675,105 +1779,137 @@ contains
          ! below  are dummy for now
          N_adapt_R, obs_pert_adapt_param, Pert_adapt_R)
     
-    ! forced to apply
-    spin = .false.
     
-    if (.not. spin) then
-       if (fresh_incr) then
-          ! apply EnKF increments 
-          ! (without call to subroutine recompute_diagnostics())
-          call apply_enkf_increments( N_catl, NUM_ENSEMBLE, update_type, cat_param, &
-               cat_progn_incr, cat_progn )
-          
-       end if ! fresh_incr
+    if (fresh_incr) then
+       ! apply EnKF increments (incl. call to catch_calc_soil_moist but not to recompute_diagS())
+       call apply_enkf_increments( N_catl, NUM_ENSEMBLE, update_type, cat_param, &
+            cat_progn_incr, cat_progn )
        
-       ! if requested, write incr and/or ObsFcstAna files whenever it was
-       ! time for assimilation, even if there were no observations
-       ! - reichle, 29 Aug 2014           
+    end if ! fresh_incr
+    
+    ! if requested, write incr and/or ObsFcstAna files whenever it was
+    ! time for assimilation, even if there were no observations
+    ! - reichle, 29 Aug 2014           
+    
+    secs_in_day = &
+         date_time_new%hour*3600 + date_time_new%min*60 + date_time_new%sec
+    
+    if (centered_update)  secs_in_day = secs_in_day + dtstep_assim/2
+    
+    ! WY note : Here N_catg is not the global land tile number
+    ! but a maximum global_id this simulation covers. 
+    ! Need to find the number 
+    N_catg = maxval(rf2g)
+    
+    if (mod(secs_in_day, dtstep_assim)==0) then
        
-       secs_in_day = &
-            date_time_new%hour*3600 + date_time_new%min*60 + date_time_new%sec
+       call output_incr_etc( out_ObsFcstAna,                             &
+            date_time_new, trim(out_path), trim(exp_id),                 &
+            N_obsl, N_obs_param, NUM_ENSEMBLE,                           &
+            N_catl, tile_coord_l,                                        &
+            N_catf, tile_coord_rf, tcinternal%grid_f, tcinternal%grid_g, &
+            N_catl_vec, low_ind, rf2l, N_catg, rf2g,                     &
+            obs_param,                                                   &
+            met_force, lai,                                              &
+            cat_param, cat_progn, cat_progn_incr, mwRTM_param,           &
+            Observations_l, rf2f=rf2f )
        
-       if (centered_update)  secs_in_day = secs_in_day + dtstep_assim/2
+       do ii = 1, N_catl
+          cat_progn_incr_ensavg(ii) = 0.0
+          do n_e=1, NUM_ENSEMBLE
+             cat_progn_incr_ensavg(ii) = cat_progn_incr_ensavg(ii) &
+                  + cat_progn_incr(ii,n_e)
+          end do
+          cat_progn_incr_ensavg(ii) = cat_progn_incr_ensavg(ii)/real(NUM_ENSEMBLE)
+       enddo
        
-       ! WY note : Here N_catg is not the global land tile number
-       ! but a maximum global_id this simulation covers. 
-       ! Need to find the number 
-       N_catg = maxval(rf2g)
+       if(associated(TC1_incr))     TC1_incr(:)     = cat_progn_incr_ensavg(:)%tc1
+       if(associated(TC2_incr))     TC2_incr(:)     = cat_progn_incr_ensavg(:)%tc2
+       if(associated(TC4_incr))     TC4_incr(:)     = cat_progn_incr_ensavg(:)%tc4
+       if(associated(QC1_incr))     QC1_incr(:)     = cat_progn_incr_ensavg(:)%qa1
+       if(associated(QC2_incr))     QC2_incr(:)     = cat_progn_incr_ensavg(:)%qa2
+       if(associated(QC4_incr))     QC4_incr(:)     = cat_progn_incr_ensavg(:)%qa4
        
-       if (mod(secs_in_day, dtstep_assim)==0) then
-          
-          call output_incr_etc( out_ObsFcstAna,                             &
-               date_time_new, trim(out_path), trim(exp_id),                 &
-               N_obsl, N_obs_param, NUM_ENSEMBLE,                           &
-               N_catl, tile_coord_l,                                        &
-               N_catf, tile_coord_rf, tcinternal%grid_f, tcinternal%grid_g, &
-               N_catl_vec, low_ind, rf2l, N_catg, rf2g,                     &
-               obs_param,                                                   &
-               met_force, lai,                                              &
-               cat_param, cat_progn, cat_progn_incr, mwRTM_param,           &
-               Observations_l, rf2f=rf2f )
-          
-          
-          do i = 1, N_catl
-             cat_progn_incr_ensavg(i) = 0.0
-             do n_e=1, NUM_ENSEMBLE
-                cat_progn_incr_ensavg(i) = cat_progn_incr_ensavg(i) &
-                     + cat_progn_incr(i,n_e)
-             end do
-             cat_progn_incr_ensavg(i) = cat_progn_incr_ensavg(i)/real(NUM_ENSEMBLE)
-          enddo
-          
-          if(associated(TC1_incr))     TC1_incr(:)     = cat_progn_incr_ensavg(:)%tc1
-          if(associated(TC2_incr))     TC2_incr(:)     = cat_progn_incr_ensavg(:)%tc2
-          if(associated(TC4_incr))     TC4_incr(:)     = cat_progn_incr_ensavg(:)%tc4
-          if(associated(QC1_incr))     QC1_incr(:)     = cat_progn_incr_ensavg(:)%qa1
-          if(associated(QC2_incr))     QC2_incr(:)     = cat_progn_incr_ensavg(:)%qa2
-          if(associated(QC4_incr))     QC4_incr(:)     = cat_progn_incr_ensavg(:)%qa4
-          
-          if(associated(CAPAC_incr))   CAPAC_incr(:)   = cat_progn_incr_ensavg(:)%capac
-          if(associated(CATDEF_incr))  CATDEF_incr(:)  = cat_progn_incr_ensavg(:)%catdef
-          if(associated(RZEXC_incr))   RZEXC_incr(:)   = cat_progn_incr_ensavg(:)%rzexc
-          if(associated(SRFEXC_incr))  SRFEXC_incr(:)  = cat_progn_incr_ensavg(:)%srfexc
-          
-          if(associated(GHTCNT1_incr)) GHTCNT1_incr(:) = cat_progn_incr_ensavg(:)%ght(1)
-          if(associated(GHTCNT2_incr)) GHTCNT2_incr(:) = cat_progn_incr_ensavg(:)%ght(2)
-          if(associated(GHTCNT3_incr)) GHTCNT3_incr(:) = cat_progn_incr_ensavg(:)%ght(3)
-          if(associated(GHTCNT4_incr)) GHTCNT4_incr(:) = cat_progn_incr_ensavg(:)%ght(4)
-          if(associated(GHTCNT5_incr)) GHTCNT5_incr(:) = cat_progn_incr_ensavg(:)%ght(5)
-          if(associated(GHTCNT6_incr)) GHTCNT6_incr(:) = cat_progn_incr_ensavg(:)%ght(6)
-          
-          if(associated(WESNN1_incr))  WESNN1_incr(:)  = cat_progn_incr_ensavg(:)%wesn(1)
-          if(associated(WESNN2_incr))  WESNN2_incr(:)  = cat_progn_incr_ensavg(:)%wesn(2)
-          if(associated(WESNN3_incr))  WESNN3_incr(:)  = cat_progn_incr_ensavg(:)%wesn(3)
-          
-          if(associated(HTSNNN1_incr)) HTSNNN1_incr(:) = cat_progn_incr_ensavg(:)%htsn(1)
-          if(associated(HTSNNN2_incr)) HTSNNN2_incr(:) = cat_progn_incr_ensavg(:)%htsn(2)
-          if(associated(HTSNNN3_incr)) HTSNNN3_incr(:) = cat_progn_incr_ensavg(:)%htsn(3)
-          
-          if(associated(SNDZN1_incr))  SNDZN1_incr(:)  = cat_progn_incr_ensavg(:)%sndz(1)
-          if(associated(SNDZN2_incr))  SNDZN2_incr(:)  = cat_progn_incr_ensavg(:)%sndz(2)
-          if(associated(SNDZN3_incr))  SNDZN3_incr(:)  = cat_progn_incr_ensavg(:)%sndz(3)
-          
+       if(associated(CAPAC_incr))   CAPAC_incr(:)   = cat_progn_incr_ensavg(:)%capac
+       if(associated(CATDEF_incr))  CATDEF_incr(:)  = cat_progn_incr_ensavg(:)%catdef
+       if(associated(RZEXC_incr))   RZEXC_incr(:)   = cat_progn_incr_ensavg(:)%rzexc
+       if(associated(SRFEXC_incr))  SRFEXC_incr(:)  = cat_progn_incr_ensavg(:)%srfexc
+       
+       if(associated(GHTCNT1_incr)) GHTCNT1_incr(:) = cat_progn_incr_ensavg(:)%ght(1)
+       if(associated(GHTCNT2_incr)) GHTCNT2_incr(:) = cat_progn_incr_ensavg(:)%ght(2)
+       if(associated(GHTCNT3_incr)) GHTCNT3_incr(:) = cat_progn_incr_ensavg(:)%ght(3)
+       if(associated(GHTCNT4_incr)) GHTCNT4_incr(:) = cat_progn_incr_ensavg(:)%ght(4)
+       if(associated(GHTCNT5_incr)) GHTCNT5_incr(:) = cat_progn_incr_ensavg(:)%ght(5)
+       if(associated(GHTCNT6_incr)) GHTCNT6_incr(:) = cat_progn_incr_ensavg(:)%ght(6)
+       
+       if(associated(WESNN1_incr))  WESNN1_incr(:)  = cat_progn_incr_ensavg(:)%wesn(1)
+       if(associated(WESNN2_incr))  WESNN2_incr(:)  = cat_progn_incr_ensavg(:)%wesn(2)
+       if(associated(WESNN3_incr))  WESNN3_incr(:)  = cat_progn_incr_ensavg(:)%wesn(3)
+       
+       if(associated(HTSNNN1_incr)) HTSNNN1_incr(:) = cat_progn_incr_ensavg(:)%htsn(1)
+       if(associated(HTSNNN2_incr)) HTSNNN2_incr(:) = cat_progn_incr_ensavg(:)%htsn(2)
+       if(associated(HTSNNN3_incr)) HTSNNN3_incr(:) = cat_progn_incr_ensavg(:)%htsn(3)
+       
+       if(associated(SNDZN1_incr))  SNDZN1_incr(:)  = cat_progn_incr_ensavg(:)%sndz(1)
+       if(associated(SNDZN2_incr))  SNDZN2_incr(:)  = cat_progn_incr_ensavg(:)%sndz(2)
+       if(associated(SNDZN3_incr))  SNDZN3_incr(:)  = cat_progn_incr_ensavg(:)%sndz(3)
+       
 
-          ! write analysis fields into SMAP L4_SM aup file 
-          ! whenever it was time for assimilation (regardless 
-          ! of whether obs were actually assimilated and fresh
-          ! increments were computed)
-          
-          if (out_smapL4SMaup)                                                        &
-               call write_smapL4SMaup( 'analysis', date_time_new, trim(out_path),     &
-               trim(exp_id), NUM_ENSEMBLE, N_catl, N_catf, N_obsl, tile_coord_rf,     &
-               tcinternal%grid_g, N_catl_vec, low_ind,                                &
-               N_obs_param, obs_param, Observations_l, cat_param, cat_progn   )
-          
-       end if
+       ! recompute select model diagnostics after analysis
        
-       fresh_incr = .false.
+       allocate(cat_progn_tmp(   N_catl))
+       allocate(cat_diagS(       N_catl))
+       allocate(cat_diagS_ensavg(N_catl))
        
-    endif !spin
+       do ii=1,N_catl
+          cat_diagS_ensavg(ii) = 0.0        ! initialize ens average
+       end do
+       
+       do n_e=1,NUM_ENSEMBLE
+          
+          ! make a copy of cat_progn to ensure 0-diff (recompute_diagS() potentially alters its input cat_progn)
+          
+          do ii=1,N_catl
+             cat_progn_tmp(ii) = cat_progn(ii,n_e)   
+          end do
+          
+          call recompute_diagS( N_catl, cat_param, cat_progn_tmp, cat_diagS )
+          
+          do ii=1,N_catl
+             cat_diagS_ensavg(ii) = cat_diagS_ensavg(ii) + cat_diagS(ii)
+          end do
+          
+       end do
+       
+       do ii=1,N_catl
+          cat_diagS_ensavg(ii) = cat_diagS_ensavg(ii)/real(NUM_ENSEMBLE)     ! normalize
+       end do
+       
+       if(associated(SFMC_ana))   SFMC_ana(:)   = cat_diagS_ensavg(:)%sfmc 
+       if(associated(RZMC_ana))   RZMC_ana(:)   = cat_diagS_ensavg(:)%rzmc  
+       if(associated(PRMC_ana))   PRMC_ana(:)   = cat_diagS_ensavg(:)%prmc 
+       if(associated(TPSURF_ana)) TPSURF_ana(:) = cat_diagS_ensavg(:)%tsurf
+       if(associated(TSOIL1_ana)) TSOIL1_ana(:) = cat_diagS_ensavg(:)%tp(1) + MAPL_TICE  ! convert to K
+
+       deallocate(cat_progn_tmp)
+       deallocate(cat_diagS)
+       deallocate(cat_diagS_ensavg) 
+
+       
+       ! write analysis fields into SMAP L4_SM aup file 
+       ! whenever it was time for assimilation (regardless 
+       ! of whether obs were actually assimilated and fresh
+       ! increments were computed)
+       
+       if (out_smapL4SMaup)                                                        &
+            call write_smapL4SMaup( 'analysis', date_time_new, trim(out_path),     &
+            trim(exp_id), NUM_ENSEMBLE, N_catl, N_catf, N_obsl, tile_coord_rf,     &
+            tcinternal%grid_g, N_catl_vec, low_ind,                                &
+            N_obs_param, obs_param, Observations_l, cat_param, cat_progn   )
+       
+    end if   ! (mod(secs_in_day, dtstep_assim)==0)    (time for assimilation)
     
-    
+    fresh_incr = .false.
     
     !--------------------
     ! Pointers to inputs
@@ -1789,6 +1925,8 @@ contains
     
   end subroutine RUN
   
+  ! ******************************************************************************
+
   ! !IROTUINE: collecting and averaging
   
   subroutine UPDATE_ASSIM(gc, import, export, clock, rc)
@@ -1940,6 +2078,7 @@ contains
     
   end subroutine UPDATE_ASSIM
   
+  ! ******************************************************************************
   
   ! subroutine to calculate Tb for HISTORY output
   
@@ -1994,10 +2133,11 @@ contains
     real, dimension(:), pointer :: TB_V_enavg
 
     ! local
-    real, allocatable, dimension(:) :: sfmc_mwRTM, tsoil_mwRTM
-    real, allocatable, dimension(:) :: dummy_real
-    real, allocatable, dimension(:) :: Tb_v_tmp, TB_h_tmp
- 
+    real,    allocatable, dimension(:) :: sfmc_mwRTM, tsoil_mwRTM
+    real,    allocatable, dimension(:) :: dummy_real
+    real,    allocatable, dimension(:) :: Tb_h_tmp, TB_v_tmp
+
+    
     integer              :: N_catl, n, mpierr
     type(MAPL_LocStream) :: locstream
     
@@ -2055,9 +2195,9 @@ contains
          mwRTM_param%poros, &
          WCSF,              & 
          TPSURF,            & 
-         TP1-MAPL_TICE,     &    ! units deg C !!!
+         TP1,               &    ! units deg C !!!
          sfmc_mwRTM,        & 
-         tsoil_mwRTM )        
+         tsoil_mwRTM )           ! units Kelvin !!!
     
     ! calculate brightness temperatures
     ! (tau-omega model as in De Lannoy et al. 2013 [doi:10.1175/JHM-D-12-092.1]
@@ -2081,22 +2221,36 @@ contains
     else
        _ASSERT(.false., "top-of-atmosphere Tb calculation not yet implemented (incl_atm_terms=.true.)")
     end if
-    
+
     if (collect_tb_counter == 0) then
-       TB_V_enavg = 0.
        TB_H_enavg = 0.
+       TB_V_enavg = 0.
+       tb_nodata  = .false.
     endif
+    
+    ! ensemble average Tb must be nodata if Tb of any member is nodata
+ 
+    tb_nodata = tb_nodata .or. LDAS_is_nodata(Tb_h_tmp) .or. LDAS_is_nodata(Tb_v_tmp)
     
     ! This counter is relative to ens_id
     collect_tb_counter = collect_tb_counter + 1
     
-    TB_V_enavg(:) = TB_V_enavg(:) + Tb_v_tmp(:)
     TB_H_enavg(:) = TB_H_enavg(:) + Tb_h_tmp(:)
+    TB_V_enavg(:) = TB_V_enavg(:) + Tb_v_tmp(:)
     
     if (collect_tb_counter == NUM_ENSEMBLE) then
-       collect_tb_counter = 0
-       TB_V_enavg(:)      = TB_V_enavg(:)/NUM_ENSEMBLE
-       TB_H_enavg(:)      = TB_H_enavg(:)/NUM_ENSEMBLE
+
+       collect_tb_counter    = 0
+
+       TB_H_enavg(:)         = TB_H_enavg(:)/NUM_ENSEMBLE
+       TB_V_enavg(:)         = TB_V_enavg(:)/NUM_ENSEMBLE
+
+       ! finalize no-data-value
+       where (tb_nodata)
+          TB_H_enavg = MAPL_UNDEF
+          TB_V_enavg = MAPL_UNDEF
+       end where
+       
     endif
     
     deallocate(Tb_h_tmp, Tb_v_tmp, sfmc_mwRTM, tsoil_mwRTM)
@@ -2104,19 +2258,32 @@ contains
     RETURN_(_SUCCESS)
   end subroutine CALC_LAND_TB
   
+  ! ******************************************************************************
   
-  subroutine read_pert_rseed(seed_fname,pert_rseed_r8)
+  subroutine read_pert_rseed(id_string,seed_fname,pert_rseed_r8)
     use netcdf
+    character(len=*),intent(in)           :: id_string
     character(len=*),intent(in)           :: seed_fname
     real(kind=ESMF_KIND_R8),intent(inout) :: pert_rseed_r8(:)
     
     integer :: ncid, s_varid, en_dim, n_ens, id_varid, i, pos
     logical :: file_exist
+
+    character(len=ESMF_MAXSTR) :: tmpstr
     
     inquire (file = trim(seed_fname), exist=file_exist)
     if ( .not. file_exist) then
+       tmpstr = 'Cold-starting OBSPERTRSEED for ens member ' // trim(id_string) // '.'
+       if (len_trim(seed_fname)>0) then
+          print *, trim(tmpstr), 'File not found: ', trim(seed_fname)
+       else
+          print *, trim(tmpstr), 'Restart file name is empty.'
+       end if
        pert_rseed_r8 = 0
        return
+    else
+       tmpstr = 'Reading OBSPERTRSEED for ens member ' // trim(id_string) // ' from '
+       print *, trim(tmpstr), trim(seed_fname)
     endif
     
     call check( nf90_open(seed_fname, NF90_NOWRITE, ncid) )
@@ -2138,6 +2305,8 @@ contains
     end subroutine check
   end subroutine read_pert_rseed
   
+  ! ******************************************************************************
+
   subroutine write_pert_rseed(chk_fname, pert_rseed_r8)
     use netcdf
     character(len=*),intent(in)        :: chk_fname
@@ -2185,6 +2354,7 @@ contains
     end subroutine check
   end subroutine write_pert_rseed
   
+  ! ******************************************************************************
   
   subroutine get_mwrtm_param(internal,N_catl, rc)
     type(ESMF_State),  intent(inout) :: INTERNAL
@@ -2211,7 +2381,7 @@ contains
     real, dimension(:), pointer :: LEWT
     
     integer :: N_catl_tmp, n, mpierr, status
-    logical :: is_nodata, all_nodata_l
+    logical :: mwp_nodata, all_nodata_l
     
     if(allocated(mwRTM_param)) then
        _RETURN(_SUCCESS)
@@ -2279,8 +2449,8 @@ contains
     
     all_nodata_l = .true.
     do n=1,N_catl
-       call mwRTM_param_nodata_check(mwRTM_param(n), is_nodata )
-       if (.not. is_nodata) all_nodata_l = .false.
+       call mwRTM_param_nodata_check(mwRTM_param(n), mwp_nodata )
+       if (.not. mwp_nodata) all_nodata_l = .false.
     end do
     
     ! perform logical AND across elements
@@ -2289,6 +2459,8 @@ contains
     _RETURN(_SUCCESS)
   end subroutine get_mwrtm_param
   
+  ! ******************************************************************************
+
   !BOP
   ! !IROTUINE: Finalize -- finalize method for LDAS GC
   ! !INTERFACE:
@@ -2313,7 +2485,7 @@ contains
     character(len=300)           :: fname_tpl
     character(len=300)           :: out_path
     character(len=ESMF_MAXSTR)   :: exp_id
-    character(len=4)             :: id_string
+    character(len=4)             :: id_string    ! BUG!  should  be "len=ens_id_width" (reichle, 11 Jun 2020)
     character(len=14)            :: datestamp
     integer                      :: ens, nymd, nhms
     
@@ -2331,7 +2503,7 @@ contains
        call MAPL_GetResource ( MAPL, exp_id, Label="EXP_ID:", DEFAULT="exp_id", RC=STATUS)
        _VERIFY(STATUS)
        
-       if (master_proc) then
+       if (root_proc) then
           if (out_obslog) call finalize_obslog()
           Pert_rseed_r8 = Pert_rseed
           call MAPL_GetResource ( MAPL, fname_tpl, Label="LANDASSIM_OBSPERTRSEED_CHECKPOINT_FILE:", &
@@ -2344,7 +2516,7 @@ contains
           read(datestamp(10:13),*) nhms
           nhms = nhms*100
           do ens = 0, NUM_ENSEMBLE-1
-             write(id_string,'(I4.4)') ens + FIRST_ENS_ID
+             write(id_string,'(I4.4)') ens + FIRST_ENS_ID       ! BUG! format string should depend on ens_id_width (reichle, 11 Jun 2020)
              seed_fname = ""
              call ESMF_CFIOStrTemplate(seed_fname,fname_tpl,'GRADS', xid=id_string,nymd=nymd,nhms=nhms,stat=status)
              _VERIFY(STATUS)
@@ -2362,3 +2534,5 @@ contains
   end subroutine Finalize
 
 end module GEOS_LandAssimGridCompMod
+
+! ====================== EOF =======================================================
