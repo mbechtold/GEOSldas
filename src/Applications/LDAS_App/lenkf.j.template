@@ -24,8 +24,8 @@
 #PBS -W x=excludenodes=r23i13n23
 #PBS -m abe
 #PBS -M MY_EMAIL
-#PBS -o ../scratch/GEOSldas_log_txt
-#PBS -e ../scratch/GEOSldas_err_txt
+#PBS -o ../scratch/GEOSldas_log.txt
+#PBS -e ../scratch/GEOSldas_err.txt
 
 cd $PBS_O_WORKDIR
 
