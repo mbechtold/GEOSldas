@@ -9,7 +9,7 @@ env:
 cmake:
   local: ./@cmake
   remote: ../ESMA_cmake.git
-  tag: v3.5.0
+  tag: v3.5.5
 
 ecbuild:
   local: ./@cmake/@ecbuild
