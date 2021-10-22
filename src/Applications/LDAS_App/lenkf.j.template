@@ -3,6 +3,8 @@
 # GEOSldas job script ("lenkf" = Land Ensemble Kalman Filter)
 #
 # usage: lenkf.j [-debug]
+#
+# <Alexander Gruber : 2021-10-22> Modified to run @ KUL w. PBS
 
 #######################################################################
 #                     Batch Parameters for Run Job
@@ -791,6 +793,16 @@ endif
 #                 Re-Submit Job
 #######################################################################
 
+# <Alexander Gruber : 2021-10-22> Modified to make resubmission work @ KUL
+# TODO: For whatever reason, the job gets resubmitted but doesn't process.
+# This should be looked into at some point, but is not urgent.
+set NODE = `uname -n`
+if (($NODE =~ r[0-1]* ) || ($NODE =~ login* )) then
+    set HOST = login1
+else
+    set HOST = tier2-p-login-1
+endif
+
 if ( $LADAS_COUPLING > 0 ) then
    if ( $rc == 0 ) then
       echo 'SUCCEEDED' > $HOMDIR/lenkf_job_completed.txt
@@ -799,6 +811,6 @@ else
    if ( $rc == 0 ) then
    cd   $HOMDIR
    #don't change below line(not even extra space)
-   if($capdate<$enddate) sbatch $HOMDIR/lenkf.j
+   if($capdate<$enddate) ssh $USER@$HOST qsub $HOMDIR/lenkf.j
   endif
 endif
