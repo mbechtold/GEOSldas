@@ -20,7 +20,7 @@
 #######################################################################
 
 #PBS -l walltime=MY_WALLTIME
-#PBS -l nodes=MY_NODES:ppn=MY_NTASKS_PER_NODE
+#PBS -l nodes=MY_NODES:ppn=MY_NTASKS_PER_NODE:skylake
 #PBS -l pmem=5gb
 #PBS -A MY_ACCOUNT
 #PBS -W x=excludenodes=r23i13n23

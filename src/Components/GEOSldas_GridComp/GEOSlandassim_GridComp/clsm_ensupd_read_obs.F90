@@ -8109,6 +8109,8 @@ contains
     !
     !  this_obs_param%scalename = 'ScZS_' : Scale using ZScore (mean and std-dev)
     !  this_obs_param%scalename = 'ScMO_' : Scale using Mean Only
+    !  this_obs_param%scalename = 'ScYH_' : Scale using Mean Only w. separate
+    !                                       scaling files for each year.
     !
     ! These first 5 characters are NOT part of the file name for the scaling file.
     !
@@ -8136,6 +8138,7 @@ contains
     ! reichle,                   12 Oct 2012 - revised and merged into CVS trunk
     ! reichle,                    6 Jun 2016 - keep obs that can *not* be scaled,
     !                                           but set tmp_assim=.false.
+    ! Alexander Gruber,          16 Nov 2021 - implemented ScYH scalename
 
     implicit none
 
@@ -8169,6 +8172,7 @@ contains
 
     character( 80) :: tmpstring80
     character(  2) :: tmpstring2, orbit_flag
+    character(  4) :: tmpstring4
 
     integer        :: i, ind, istat, ind_angle
 
@@ -8200,6 +8204,10 @@ contains
 
        scale_mean_only = .true.
 
+    elseif (tmpstring80(1:5)=='ScYH_') then
+
+       scale_mean_only = .true.
+
     else
 
        call ldas_abort(LDAS_GENERIC_ERROR, Iam, 'unknown scaling method')
@@ -8226,11 +8234,24 @@ contains
     end if
 
     write (tmpstring2, '(i2.2)') date_time%pentad
+    write (tmpstring4, '(i4.4)') date_time%year
 
-    fname =                                                 &
-         trim(this_obs_param%scalepath)       // '/'  //    &
-         trim(this_obs_param%scalename(6:80)) //            &
-         orbit_flag // '_p' // tmpstring2 // '.bin'
+    if (tmpstring80(1:5)=='ScYH_') then
+
+       fname =                                                 &
+            trim(this_obs_param%scalepath)       // '/'  //    &
+            trim(this_obs_param%scalename(6:80)) //            &
+            orbit_flag // '_p' // tmpstring2 // '_y' //        &
+            tmpstring4 // '.bin'
+
+    else
+
+       fname =                                                 &
+            trim(this_obs_param%scalepath)       // '/'  //    &
+            trim(this_obs_param%scalename(6:80)) //            &
+            orbit_flag // '_p' // tmpstring2 // '.bin'
+
+    end if
 
     if (logit) write (logunit,*)        'scaling obs species ', this_obs_param%species, ':'
     if (logit) write (logunit,'(400A)') '  reading ', trim(fname)
