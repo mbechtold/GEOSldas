@@ -8111,6 +8111,8 @@ contains
     !  this_obs_param%scalename = 'ScMO_' : Scale using Mean Only
     !  this_obs_param%scalename = 'ScYH_' : Scale using Mean Only w. separate
     !                                       scaling files for each year.
+    !  this_obs_param%scalename = 'ScDY_' : Scale using Mean Only w. separate
+    !                                       scaling files for each doy.
     !
     ! These first 5 characters are NOT part of the file name for the scaling file.
     !
@@ -8172,6 +8174,7 @@ contains
 
     character( 80) :: tmpstring80
     character(  2) :: tmpstring2, orbit_flag
+    character(  3) :: tmpstring3
     character(  4) :: tmpstring4
 
     integer        :: i, ind, istat, ind_angle
@@ -8208,6 +8211,10 @@ contains
 
        scale_mean_only = .true.
 
+     elseif (tmpstring80(1:5)=='ScDY_') then
+
+        scale_mean_only = .true.
+
     else
 
        call ldas_abort(LDAS_GENERIC_ERROR, Iam, 'unknown scaling method')
@@ -8234,6 +8241,7 @@ contains
     end if
 
     write (tmpstring2, '(i2.2)') date_time%pentad
+    write (tmpstring3, '(i3.3)') date_time%dofyr
     write (tmpstring4, '(i4.4)') date_time%year
 
     if (tmpstring80(1:5)=='ScYH_') then
@@ -8243,6 +8251,14 @@ contains
             trim(this_obs_param%scalename(6:80)) //            &
             orbit_flag // '_p' // tmpstring2 // '_y' //        &
             tmpstring4 // '.bin'
+
+    elseif (tmpstring80(1:5)=='ScDY_') then
+
+       fname =                                                 &
+            trim(this_obs_param%scalepath)       // '/'  //    &
+            'y' // tmpstring4                    // '/' //     &
+            trim(this_obs_param%scalename(6:80)) //            &
+            orbit_flag // '_d' // tmpstring3 // '.bin'
 
     else
 
