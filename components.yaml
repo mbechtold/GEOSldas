@@ -29,6 +29,6 @@ MAPL:
 
 GEOSgcm_GridComp:
   local: ./src/Components/GEOSldas_GridComp/@GEOSgcm_GridComp
-  remote: https://github.com/GEOS-ESM/GEOSgcm_GridComp
+  remote: https://github.com/mbechtold/GEOSgcm_GridComp 
+  develop: v1.15.5_TN_KUL
   sparse: ./config/GEOSgcm_GridComp_ldas.sparse
-  tag: v1.15.5
