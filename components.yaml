@@ -3,32 +3,32 @@ GEOSldas:
 
 env:
   local: ./@env
-  remote: https://github.com/orgs/GEOS-ESM/ESMA_env.git
+  remote: https://github.com/GEOS-ESM/ESMA_env
   tag: v3.13.0
 
 cmake:
   local: ./@cmake
-  remote: https://github.com/orgs/GEOS-ESM/ESMA_cmake.git
+  remote: https://github.com/GEOS-ESM/ESMA_cmake
   tag: v3.12.0
 
 ecbuild:
   local: ./@cmake/@ecbuild
-  remote: https://github.com/orgs/GEOS-ESM/ecbuild.git
+  remote: https://github.com/GEOS-ESM/ecbuild
   tag: geos/v1.2.0
 
 GMAO_Shared:
   local: ./src/Shared/@GMAO_Shared
-  remote: https://github.com/orgs/GEOS-ESM/GMAO_Shared.git
+  remote: https://github.com/GEOS-ESM/GMAO_Shared
   sparse: ./config/GMAO_Shared.sparse
   tag: v1.5.5
 
 MAPL:
   local: ./src/Shared/@MAPL
-  remote: https://github.com/orgs/GEOS-ESM/MAPL.git
+  remote: https://github.com/GEOS-ESM/MAPL
   tag: v2.19.0
 
 GEOSgcm_GridComp:
   local: ./src/Components/GEOSldas_GridComp/@GEOSgcm_GridComp
-  remote: https://github.com/orgs/GEOS-ESM/GEOSgcm_GridComp.git
+  remote: https://github.com/GEOS-ESM/GEOSgcm_GridComp
   sparse: ./config/GEOSgcm_GridComp_ldas.sparse
   tag: v1.15.5
