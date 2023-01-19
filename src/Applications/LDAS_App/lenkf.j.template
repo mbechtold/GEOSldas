@@ -21,7 +21,7 @@
 #######################################################################
 
 #PBS -l walltime=MY_WALLTIME
-#PBS -l nodes=MY_NODES:ppn=MY_NTASKS_PER_NODE:skylake
+#PBS -l nodes=MY_NODES:ppn=MY_NTASKS_PER_NODE
 #PBS -l pmem=5gb
 #PBS -A MY_ACCOUNT
 #PBS -W x=excludenodes=r23i13n23
@@ -62,7 +62,7 @@ setenv MKL_CBWR "AVX2"
 setenv LD_LIBRARY_PATH ${BASEDIR}/${ARCH}/lib:${ESMADIR}/lib:${LD_LIBRARY_PATH} 
 
 if ( -e /etc/os-release ) then
-  module load NCO/4.9.3-foss-2019b
+  module load NCO/5.1.3-foss-2022a
 else
   module load other/nco-4.6.8-gcc-5.3-sp3
 endif
