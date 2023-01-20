@@ -62,20 +62,19 @@ case [0] :
     cd $EXPDIR/$EXPID/mk_restarts/
 
     cat << _EOI_ > mkLDASsa.j
-#!/bin/csh -fx
- 
-#SBATCH --account=${SPONSORID}
-#SBATCH --time=1:00:00
-#SBATCH --ntasks=56
-#SBATCH --job-name=mkLDAS
-###SBATCH --constraint=hasw
-#SBATCH --qos=debug
-#SBATCH --output=mkLDAS.o
-#SBATCH --error=mkLDAS.e
- 
+#!/usr/bin/env csh
+
+#PBS -l walltime=MY_WALLTIME
+#PBS -l nodes=MY_NODES:ppn=MY_NTASKS_PER_NODE
+#PBS -l pmem=5gb
+#PBS -A MY_ACCOUNT
+#PBS -M MY_EMAIL
+#PBS -o mkLDASsa_log_txt
+#PBS -e mkLDASsa_err_txt  
+
 source $INSTDIR/bin/g5_modules
 if ( -e /etc/os-release ) then
-  module load nco/4.8.1
+  module load NCO/5.1.3-foss-2022a
 else
   module load other/nco-4.6.8-gcc-5.3-sp3 
 endif
