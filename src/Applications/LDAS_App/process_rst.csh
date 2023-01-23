@@ -74,7 +74,7 @@ case [0] :
 
 source $INSTDIR/bin/g5_modules
 if ( -e /etc/os-release ) then
-  module load NCO/5.1.3-foss-2022a
+  module load NCO/5.0.3-foss-2021b
 else
   module load other/nco-4.6.8-gcc-5.3-sp3 
 endif
