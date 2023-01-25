@@ -89,11 +89,11 @@ $INSTDIR/bin/esma_mpirun -np 56 bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCS
 
 sleep 3
 
-/bin/cp InData/${MODEL}_internal_rst OutData/${MODEL}_internal_rst
+/bin/cp $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst
 
 $INSTDIR/bin/esma_mpirun -np 56 bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
 
-${SCALE} InData/${MODEL}_internal_rst OutData/${MODEL}_internal_rst ${MODEL}_internal_rst $SURFLAY $WEMIN_IN $WEMIN_OUT 
+$INSTDIR/${SCALE} $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/${MODEL}_internal_rst $SURFLAY $WEMIN_IN $WEMIN_OUT 
 
 # Done creating catch*_internal_rst file
 
