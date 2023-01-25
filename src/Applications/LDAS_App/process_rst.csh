@@ -64,11 +64,10 @@ case [0] :
     cat << _EOI_ > mkLDASsa.j
 #!/usr/bin/env csh
 
-#PBS -l walltime=MY_WALLTIME
-#PBS -l nodes=MY_NODES:ppn=MY_NTASKS_PER_NODE
-#PBS -l pmem=5gb
-#PBS -A MY_ACCOUNT
-#PBS -M MY_EMAIL
+#PBS -l walltime=23:59:59
+#PBS -l nodes=1:ppn=56
+#PBS -A 2022_200
+#PBS -M sebastian.apers@kuleuven.be
 #PBS -o mkLDASsa_log_txt
 #PBS -e mkLDASsa_err_txt  
 
@@ -84,21 +83,21 @@ setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${BASEDIR}/Linux/lib
 
 limit stacksize unlimited
  
-$INSTDIR/bin/esma_mpirun -np MY_NTASKS_PER_NODE $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
+$INSTDIR/bin/esma_mpirun -np 56 $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
 
 sleep 3
 
-/bin/cp InData/${MODEL}_internal_rst OutData/${MODEL}_internal_rst
+/bin/cp $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst
 
-$INSTDIR/bin/esma_mpirun -np MY_NTASKS_PER_NODE $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
+$INSTDIR/bin/esma_mpirun -np 56 $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
 
-${SCALE} InData/${MODEL}_internal_rst OutData/${MODEL}_internal_rst ${MODEL}_internal_rst $SURFLAY $WEMIN_IN $WEMIN_OUT 
+$INSTDIR/${SCALE} $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/${MODEL}_internal_rst $SURFLAY $WEMIN_IN $WEMIN_OUT 
 
 # Done creating catch*_internal_rst file
 
 sleep 2
 
-ln -s  OutData/${MODEL}_internal_rst ${MODEL}_internal_rst.$YYYYMMDD
+ln -s  $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/${MODEL}_internal_rst.$YYYYMMDD
 echo DONE > done_rst_file
 
 _EOI_
