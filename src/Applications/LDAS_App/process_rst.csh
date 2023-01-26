@@ -87,7 +87,7 @@ $INSTDIR/bin/esma_mpirun -np 56 $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID}
 
 sleep 3
 
-/bin/cp $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst
+cp $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst
 
 $INSTDIR/bin/esma_mpirun -np 56 $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
 
