@@ -64,12 +64,14 @@ case [0] :
     cat << _EOI_ > mkLDASsa.j
 #!/usr/bin/env csh
 
-#PBS -l walltime=23:59:59
+#PBS -l walltime=00:59:59
 #PBS -l nodes=1:ppn=56
 #PBS -A 2022_200
 #PBS -M sebastian.apers@kuleuven.be
 #PBS -o mkLDASsa_log_txt
 #PBS -e mkLDASsa_err_txt  
+
+cd $EXPDIR/$EXPID/mk_restarts/
 
 source $INSTDIR/bin/g5_modules
 if ( -e /etc/os-release ) then
@@ -83,21 +85,21 @@ setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${BASEDIR}/Linux/lib
 
 limit stacksize unlimited
  
-$INSTDIR/bin/esma_mpirun -np 56 $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
+$INSTDIR/bin/esma_mpirun -np 56 bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
 
 sleep 3
 
-cp $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst
+/bin/cp InData/${MODEL}_internal_rst OutData/${MODEL}_internal_rst
 
-$INSTDIR/bin/esma_mpirun -np 56 $INSTDIR/bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
+$INSTDIR/bin/esma_mpirun -np 56 bin/mk_GEOSldasRestarts -a ${SPONSORID} -b ${BCSDIR} -t ${TILFILE} -m ${MODEL} -s ${SURFLAY} -j Y
 
-$INSTDIR/${SCALE} $EXPDIR/$EXPID/mk_restarts/InData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/${MODEL}_internal_rst $SURFLAY $WEMIN_IN $WEMIN_OUT 
+${SCALE} InData/${MODEL}_internal_rst OutData/${MODEL}_internal_rst ${MODEL}_internal_rst $SURFLAY $WEMIN_IN $WEMIN_OUT 
 
 # Done creating catch*_internal_rst file
 
 sleep 2
 
-ln -s  $EXPDIR/$EXPID/mk_restarts/OutData/${MODEL}_internal_rst $EXPDIR/$EXPID/mk_restarts/${MODEL}_internal_rst.$YYYYMMDD
+ln -s  ${MODEL}_internal_rst ${MODEL}_internal_rst.$YYYYMMDD
 echo DONE > done_rst_file
 
 _EOI_
@@ -184,28 +186,29 @@ case [2]:
     cd $EXPDIR/$EXPID/mk_restarts/
 
     cat << _EOI3_ > mkLDASsa.j
-#!/bin/csh -fx
- 
-#SBATCH --account=${SPONSORID}
-#SBATCH --time=1:00:00
-#SBATCH --ntasks=56
-#SBATCH --job-name=mkLDAS
-#SBATCH --constraint=hasw
-#SBATCH --qos=debug
-#SBATCH --output=mkLDAS.o
-#SBATCH --error=mkLDAS.e
+#!/usr/bin/env csh
+
+#PBS -l walltime=23:59:59
+#PBS -l nodes=1:ppn=128
+#PBS -A 2022_200
+#PBS -M sebastian.apers@kuleuven.be
+#PBS -o mkLDASsa_log_txt
+#PBS -e mkLDASsa_err_txt  
+
+#temporarily removed this because it was added by me and maybe not necessary?
+#cd $EXPDIR/$EXPID/mk_restarts/
  
 source $INSTDIR/bin/g5_modules
 setenv OMPI_MCA_shmem_mmap_enable_nfs_warning 0
 if ( -e /etc/os-release ) then
-  module load nco/4.8.1
+  module load NCO/5.0.3-foss-2021b
 else
   module load other/nco-4.6.8-gcc-5.3-sp3 
 endif
 setenv LAIFILE `find ${BCSDIR}/lai_clim*`
 limit stacksize unlimited
  
-$INSTDIR/bin/esma_mpirun -np 56 bin/mk_GEOSldasRestarts -b ${BCSDIR} -d ${YYYYMMDDHH} -e ${RESTART_ID} -l ${RESTART_short} -t ${TILFILE} -m ${MODEL} -s $SURFLAY -j Y -r R -p ${PARAM_FILE}
+$INSTDIR/bin/esma_mpirun -np 128 bin/mk_GEOSldasRestarts -b ${BCSDIR} -d ${YYYYMMDDHH} -e ${RESTART_ID} -l ${RESTART_short} -t ${TILFILE} -m ${MODEL} -s $SURFLAY -j Y -r R -p ${PARAM_FILE}
 sleep 3
 
 
