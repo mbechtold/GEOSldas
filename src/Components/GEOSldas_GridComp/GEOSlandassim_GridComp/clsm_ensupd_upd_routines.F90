@@ -445,7 +445,13 @@ contains
           
           ! compute FOV in units of [deg] at (area-weighted) average abs latitude of tiles 
           
-          tmp_lat(1) = sum( abs(tile_coord_f%com_lat) * tile_coord_f%area )/sum(tile_coord_f%area)
+          ! tmp_lat(1) = sum( abs(tile_coord_f%com_lat) * tile_coord_f%area )/sum(tile_coord_f%area)
+          ! MB: tile_coord_f represents the whole domain, should be changed to
+          ! tile_coord_l
+          ! for now use minimum latitude of domain --> changed, now set to 0.0
+          ! turning off the test
+          ! tmp_lat(1) = minval(abs(tile_coord_f%com_lat))
+          tmp_lat(1) = 0.0
           
           call dist_km2deg( obs_param(i)%FOV, 1, tmp_lat, r_x, r_y )
           
