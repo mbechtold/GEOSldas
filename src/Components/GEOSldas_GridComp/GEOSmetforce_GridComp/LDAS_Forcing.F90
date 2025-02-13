@@ -3128,11 +3128,12 @@ contains
 
     integer, dimension(3) :: start, icount
 
-    integer :: k, hours_since_start, isimip_var, ierr, ncid
+    integer :: k, hours_since_start, isimip_var, ierr, ncid, new_year
     real :: tol, this_lon, this_lat
     character(4) :: YYYY, HHMM
     character(2) :: MM, DD
     character(300) :: fname
+    character(len=4) :: year_str
 
     character(len=*), parameter :: Iam = 'get_isimip_netcdf'
     character(len=400) :: err_msg
@@ -3181,9 +3182,11 @@ contains
     ! Read each variable from corresponding file
 
     do isimip_var = 1, 7
-
+       new_year = YYYY + 4
+       write(year_str, '(I4)') new_year 
        fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_GSWP3-W5E5_historical_' // &
-               YYYY // '-' // trim(YYYY + 4) // '.nc4'
+               YYYY // '-' // trim(adjustl(year_str)) // '.nc4'
+       
        if (root_logit) write (logunit,*) 'opening ' // trim(fname)
 
        ierr = NF_OPEN(fname, NF_NOWRITE, ncid)
@@ -3240,7 +3243,9 @@ contains
     enddo
 
     ! Convert RH to SH before assigning it
-    met_force_obs_tile_new%Qair = RH_to_SH(force_array(:, 1), force_array(:, 7), force_array(:, 3) * 100.0)
+    do k = 1, N_catd
+        met_force_obs_tile_new(k)%Qair = RH_to_SH(force_array(k, 1), force_array(k, 7), force_array(k, 3) * 100.0)
+    enddo 
 
   end subroutine get_isimip_netcdf    
 
