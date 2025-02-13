@@ -3128,12 +3128,12 @@ contains
 
     integer, dimension(3) :: start, icount
 
-    integer :: k, hours_since_start, isimip_var, ierr, ncid, new_year
+    integer :: k, hours_since_start, isimip_var, ierr, ncid, new_year_int
     real :: tol, this_lon, this_lat
     character(4) :: YYYY, HHMM
     character(2) :: MM, DD
     character(300) :: fname
-    character(len=4) :: year_str
+    character(4) :: new_year_str
 
     character(len=*), parameter :: Iam = 'get_isimip_netcdf'
     character(len=400) :: err_msg
@@ -3182,11 +3182,19 @@ contains
     ! Read each variable from corresponding file
 
     do isimip_var = 1, 7
-       new_year = YYYY + 4
-       write(year_str, '(I4)') new_year 
-       fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_GSWP3-W5E5_historical_' // &
-               YYYY // '-' // trim(adjustl(year_str)) // '.nc4'
        
+       ! Convert the string to integer
+       read(YYYY, '(I4)') new_year_int
+
+       ! Add 4 to the integer value
+       new_year_int = new_year_int + 4
+
+       ! Convert the integer back to string
+       write(new_year_str, '(I4)') new_year_int
+    
+       fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_GSWP3-W5E5_historical_' // &
+               YYYY // '-' // trim(adjustl(new_year_str)) // '.nc4'
+
        if (root_logit) write (logunit,*) 'opening ' // trim(fname)
 
        ierr = NF_OPEN(fname, NF_NOWRITE, ncid)
