@@ -3242,10 +3242,6 @@ contains
       endif
     enddo
 
-    ! Convert RH to SH before assigning it
-    do k = 1, N_catd
-        met_force_obs_tile_new(k)%Qair = RH_to_SH(force_array(k, 1), force_array(k, 7), force_array(k, 3) * 100.0)
-    enddo 
 
   end subroutine get_isimip_netcdf    
 
