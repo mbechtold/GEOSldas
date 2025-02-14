@@ -3077,7 +3077,15 @@ contains
     e  = (RH / 100.0) * es  ! Convert RH% to actual vapor pressure
 
     ! Convert to specific humidity (SH = 0.622 * e / (P - 0.378 * e))
-    SH = (epsilon * e) / (Psurf / 100.0 - (1.0 - epsilon) * e)
+    ! Add a small tolerance check for floating errors
+    if (abs(Psurf / 100.0 - (1.0 - epsilon) * e) < 1.0e-6) then
+      print *, "ERROR: Division by (almost) zero in RH_to_SH! Assigned nodata_isimip to SH"
+      SH = nodata_isimip
+    else
+      SH = (epsilon * e) / (Psurf / 100.0 - (1.0 - epsilon) * e)
+      print *, "RH_to_SH worked and result is: SH=", SH
+    endif
+
   end function RH_to_SH
 
   !SA actual subroutine *************************************************
@@ -3128,12 +3136,13 @@ contains
 
     integer, dimension(3) :: start, icount
 
-    integer :: k, hours_since_start, isimip_var, ierr, ncid, new_year_int
+    integer :: k, hours_since_start, isimip_var, ierr, ncid
     real :: tol, this_lon, this_lat
     character(4) :: YYYY, HHMM
     character(2) :: MM, DD
     character(300) :: fname
-    character(4) :: new_year_str
+    character(4) :: new_year_str, end_year_str
+    integer :: start_year, start_range_year, end_range_year
 
     character(len=*), parameter :: Iam = 'get_isimip_netcdf'
     character(len=400) :: err_msg
@@ -3182,18 +3191,25 @@ contains
     ! Read each variable from corresponding file
 
     do isimip_var = 1, 7
-       
-       ! Convert the string to integer
-       read(YYYY, '(I4)') new_year_int
 
-       ! Add 4 to the integer value
-       new_year_int = new_year_int + 4
+       start_year = date_time%year
+       start_range_year = ((start_year - 1) / 5) * 5 + 1
 
-       ! Convert the integer back to string
-       write(new_year_str, '(I4)') new_year_int
-    
+       ! Calculate the start and end years for the 5-year chunk
+       start_range_year = (start_year / 5) * 5
+       if (start_year - start_range_year > 0) then
+           start_range_year = start_range_year + 5
+       endif
+       end_range_year = start_range_year + 4
+
+       ! Update the year range to match the file naming convention
+       write (YYYY, '(i4.4)') start_range_year
+
+       write(end_year_str, '(i4)') end_range_year
+
+       ! Assemble the filename dynamically using the calculated years
        fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_GSWP3-W5E5_historical_' // &
-               YYYY // '-' // trim(adjustl(new_year_str)) // '.nc4'
+               trim(adjustl(YYYY)) // '-' // trim(adjustl(end_year_str)) // '.nc4' 
 
        if (root_logit) write (logunit,*) 'opening ' // trim(fname)
 
@@ -3205,8 +3221,14 @@ contains
        end if
 
        ierr = NF_GET_VARA_REAL(ncid, isimip_var + 3, start, icount, tmp_grid)  ! Offset by 3 (lon, lat, time)
-
        ierr = NF_CLOSE(ncid)
+
+       ! Before bilinear interpolation check if indexing is correct
+       do k = 1, N_catd
+          if (i_ind(k) < 1 .or. j_ind(k) < 1 .or. i_ind(k) >= isimip_grid_N_lon .or. j_ind(k) >= isimip_grid_N_lat) then
+             print *, "WARNING: Index out of bounds at k=", k, " i_ind=", i_ind(k), " j_ind=", j_ind(k)
+          endif
+       enddo
 
        ! Bilinear interpolation
        do k = 1, N_catd
@@ -3215,6 +3237,7 @@ contains
                i_frac(k) * (1 - j_frac(k)) * tmp_grid(i_ind(k) + 1, j_ind(k)) + &
                (1 - i_frac(k)) * j_frac(k) * tmp_grid(i_ind(k), j_ind(k) + 1) + &
                i_frac(k) * j_frac(k) * tmp_grid(i_ind(k) + 1, j_ind(k) + 1)
+               print *, "force_array(", k, ",", isimip_var, ")=", force_array(k, isimip_var)
        end do
 
     enddo
@@ -3227,6 +3250,7 @@ contains
     met_force_obs_tile_new%SWdown = force_array(:, 5)                   ! Shortwave Radiation [W/m²]
     met_force_obs_tile_new%Wind   = force_array(:, 6)                   ! Wind Speed [m/s]
     met_force_obs_tile_new%Rainf_C = 0.                                 ! Convective rainfall set to zero
+    print *, "Converting variables went through without issue"
 
     ! Precipitation phase determination with proper unit conversion
     do k = 1, N_catd
@@ -3244,8 +3268,10 @@ contains
       if (force_array(k,1) /= nodata_isimip .and. &
           force_array(k,7) /= nodata_isimip .and. &
           force_array(k,3) /= nodata_isimip) then
+          print *, "Calling RH_to_SH for k=", k
           met_force_obs_tile_new(k)%Qair = RH_to_SH(force_array(k, 1), force_array(k, 7), force_array(k, 3) * 100.0)
       else
+          print *, "Skipping RH_to_SH for k=", k, " due to missing data"
           met_force_obs_tile_new(k)%Qair = nodata_isimip
       endif
     enddo
