@@ -3071,6 +3071,7 @@ contains
     real :: SH
     real, parameter :: epsilon = 0.622  ! Ratio of water vapor to dry air molecular weight
     real :: es, e  ! Saturation vapor pressure, actual vapor pressure
+    real,    parameter :: nodata_isimip      = 1.e20
 
     ! Compute saturation vapor pressure (Tetens formula)
     es = 6.112 * exp((17.67 * (Tair - 273.15)) / (Tair - 29.65))  ! In hPa
