@@ -3193,14 +3193,9 @@ contains
 
     do isimip_var = 1, 7
 
+       ! Determine the ranges and files to read in, based on start_year
        start_year = date_time%year
        start_range_year = ((start_year - 1) / 5) * 5 + 1
-
-       ! Calculate the start and end years for the 5-year chunk
-       start_range_year = (start_year / 5) * 5
-       if (start_year - start_range_year > 0) then
-           start_range_year = start_range_year + 5
-       endif
        end_range_year = start_range_year + 4
 
        ! Update the year range to match the file naming convention
