@@ -3233,7 +3233,6 @@ contains
                i_frac(k) * (1 - j_frac(k)) * tmp_grid(i_ind(k) + 1, j_ind(k)) + &
                (1 - i_frac(k)) * j_frac(k) * tmp_grid(i_ind(k), j_ind(k) + 1) + &
                i_frac(k) * j_frac(k) * tmp_grid(i_ind(k) + 1, j_ind(k) + 1)
-               print *, "force_array(", k, ",", isimip_var, ")=", force_array(k, isimip_var)
        end do
 
     enddo
