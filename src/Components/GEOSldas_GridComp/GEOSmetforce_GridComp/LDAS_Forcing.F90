@@ -3175,17 +3175,17 @@ contains
 
 
     ! ----------------------------------------------------------------
-    ! Compute indices for bilinear interpolation
+    ! Compute indices for nearest neighbor interpolation
 
     do k=1, N_catd
        this_lon = tile_coord(k)%com_lon
        this_lat = tile_coord(k)%com_lat
 
-       i_ind(k) = floor((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon)
-       j_ind(k) = floor((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat)
+       i_ind(k) = ceiling((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon)
+       j_ind(k) = ceiling((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat)
 
-       i_frac(k) = ((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon) - i_ind(k)
-       j_frac(k) = ((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat) - j_ind(k)
+       if(i_ind(k) < 1) i_ind(k) = i_ind(k) + isimip_grid_N_lon
+
     enddo
 
     ! ----------------------------------------------------------------
@@ -3219,21 +3219,13 @@ contains
        ierr = NF_GET_VARA_REAL(ncid, isimip_var + 3, start, icount, tmp_grid)  ! Offset by 3 (lon, lat, time)
        ierr = NF_CLOSE(ncid)
 
-       ! Before bilinear interpolation check if indexing is correct
-       do k = 1, N_catd
-          if (i_ind(k) < 1 .or. j_ind(k) < 1 .or. i_ind(k) >= isimip_grid_N_lon .or. j_ind(k) >= isimip_grid_N_lat) then
-             print *, "WARNING: Index out of bounds at k=", k, " i_ind=", i_ind(k), " j_ind=", j_ind(k)
-          endif
+       do k = 1, N_catd   
+          force_array(k,isimip_var) = tmp_grid(i_ind(k), j_ind(k))
        enddo
-
-       ! Bilinear interpolation
-       do k = 1, N_catd
-          force_array(k, isimip_var) = &
-               (1 - i_frac(k)) * (1 - j_frac(k)) * tmp_grid(i_ind(k), j_ind(k)) + &
-               i_frac(k) * (1 - j_frac(k)) * tmp_grid(i_ind(k) + 1, j_ind(k)) + &
-               (1 - i_frac(k)) * j_frac(k) * tmp_grid(i_ind(k), j_ind(k) + 1) + &
-               i_frac(k) * j_frac(k) * tmp_grid(i_ind(k) + 1, j_ind(k) + 1)
-       end do
+       
+       print *, "Test if values are not all empty as before force_array(5,longwaverad):", force_array(5,4), "; and
+       force_array(120,windspeed):", force_array(120,6) 
+       
 
     enddo
 
@@ -3249,6 +3241,9 @@ contains
 
     ! Precipitation phase determination with proper unit conversion
     do k = 1, N_catd
+       
+       met_force_obs_tile_new(k)%Rainf_C = 0.                                 ! Convective rainfall set to zero
+       
        if (met_force_obs_tile_new(k)%Tair < Tzero) then
           met_force_obs_tile_new(k)%Rainf = 0.
           met_force_obs_tile_new(k)%Snowf = force_array(k, 2) / 3600.0  ! Convert mm/hour to kg/m²/s
