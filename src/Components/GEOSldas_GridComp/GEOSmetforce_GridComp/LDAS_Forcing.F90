@@ -3223,8 +3223,7 @@ contains
           force_array(k,isimip_var) = tmp_grid(i_ind(k), j_ind(k))
        enddo
        
-       print *, "Test if values are not all empty as before force_array(5,longwaverad):", force_array(5,4), "; and
-       force_array(120,windspeed):", force_array(120,6) 
+       print *, "Test if values are not all empty as before force_array(5,longwaverad):", force_array(5,4)
        
 
     enddo
