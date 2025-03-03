@@ -3067,23 +3067,23 @@ contains
   !SA first define fucntion to convert RH to SH, from ISIMIP data
   function RH_to_SH(RH, Tair, Psurf) result(SH)
     implicit none
-    real, intent(in) :: RH, Tair, Psurf
+    real, intent(in) :: RH, Tair, Psurf    ! %, K, Pa
     real :: SH
     real, parameter :: epsilon = 0.622  ! Ratio of water vapor to dry air molecular weight
     real :: es, e  ! Saturation vapor pressure, actual vapor pressure
     real,    parameter :: nodata_isimip      = 1.e20
 
     ! Compute saturation vapor pressure (Tetens formula)
-    es = 6.112 * exp((17.67 * (Tair - 273.15)) / (Tair - 29.65))  ! In hPa
-    e  = (RH / 100.0) * es  ! Convert RH% to actual vapor pressure
+    es = 6.112 * exp((17.67 * (Tair - 273.15)) / (Tair - 29.65)) * 100 ! In Pa
+    e  = (RH / 100.0) * es  ! Convert RH% to actual vapor pressure in Pa
 
     ! Convert to specific humidity (SH = 0.622 * e / (P - 0.378 * e))
     ! Add a small tolerance check for floating errors
-    if (abs(Psurf / 100.0 - (1.0 - epsilon) * e) < 1.0e-6) then
+    if (abs(Psurf - (1.0 - epsilon) * e) < 1.0e-6) then
       print *, "ERROR: Division by (almost) zero in RH_to_SH! Assigned nodata_isimip to SH"
       SH = nodata_isimip
     else
-      SH = (epsilon * e) / (Psurf / 100.0 - (1.0 - epsilon) * e)
+      SH = (epsilon * e) / (Psurf - (1.0 - epsilon) * e)
       print *, "RH_to_SH worked and result is: SH=", SH
     endif
 
@@ -3137,13 +3137,14 @@ contains
 
     integer, dimension(3) :: start, icount
 
-    integer :: k, hours_since_start, isimip_var, ierr, ncid
+    integer :: k, hours_since_start, isimip_var, ierr, ncid, varid
     real :: tol, this_lon, this_lat
     character(4) :: YYYY, HHMM
     character(2) :: MM, DD
     character(300) :: fname
     character(4) :: new_year_str, end_year_str
     integer :: start_year, start_range_year, end_range_year
+    character(len=40) :: varname
 
     character(len=*), parameter :: Iam = 'get_isimip_netcdf'
     character(len=400) :: err_msg
@@ -3166,12 +3167,34 @@ contains
          (mod(date_time%hour, dt_isimip_in_hours) /= 0)) then
        call ldas_abort(LDAS_GENERIC_ERROR, Iam, 'timing ERROR!!')
     endif
+    
+    ! Calculate start range year
+    start_year = date_time%year
+    start_range_year = ((start_year - 1) / 5) * 5 + 1
+    end_range_year = start_range_year + 4
 
-    hours_since_start = (date_time%year - 1901) * 8760 + (date_time%month - 1) * 730 + &
-                        (date_time%day - 1) * 24 + date_time%hour
-
+    ! Calculate `hours_since_start` from start_range_year-01-01 00:00:00
+    hours_since_start = (date_time%year - start_range_year) * 8760 +  &
+                        (date_time%month - 1) * 730 +                &
+                        (date_time%day - 1) * 24 +                   &
+                        date_time%hour
     start(3)  = hours_since_start / dt_isimip_in_hours + 1
     icount(3) = 1
+    
+    !!!!! remove following section once timestamp read-in is correct
+    ! Calculate the simulated datetime (starting from start_range_year)
+    integer :: simulated_year, simulated_month, simulated_day, simulated_hour
+    real :: fractional_day
+    simulated_year = start_range_year
+    fractional_day = real(hours_since_start) / 24.0
+    simulated_day = floor(fractional_day) + 1
+    simulated_hour = mod(hours_since_start, 24)
+
+    ! Now print the results as requested
+    print *, "hours_since_start = ", hours_since_start
+    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
+    print *, "Simulated time starting from ", start_range_year, " is: ", simulated_year, "-", simulated_month, "-", simulated_day, " ", simulated_hour, ":00:00"
+    !!!!!!
 
 
     ! ----------------------------------------------------------------
@@ -3184,7 +3207,12 @@ contains
        i_ind(k) = ceiling((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon)
        j_ind(k) = ceiling((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat)
 
-       if(i_ind(k) < 1) i_ind(k) = i_ind(k) + isimip_grid_N_lon
+       ! to handle incorrect longitude indexing around +-180 degrees
+       if (i_ind(k) < 1) then
+          i_ind(k) = i_ind(k) + isimip_grid_N_lon
+       elseif (i_ind(k) > isimip_grid_N_lon) then
+          i_ind(k) = i_ind(k) - isimip_grid_N_lon
+       endif
 
     enddo
 
@@ -3192,11 +3220,6 @@ contains
     ! Read each variable from corresponding file
 
     do isimip_var = 1, 7
-
-       ! Determine the ranges and files to read in, based on start_year
-       start_year = date_time%year
-       start_range_year = ((start_year - 1) / 5) * 5 + 1
-       end_range_year = start_range_year + 4
 
        ! Update the year range to match the file naming convention
        write (YYYY, '(i4.4)') start_range_year
@@ -3216,16 +3239,20 @@ contains
           call ldas_abort(LDAS_GENERIC_ERROR, Iam, err_msg)
        end if
 
-       ierr = NF_GET_VARA_REAL(ncid, isimip_var + 3, start, icount, tmp_grid)  ! Offset by 3 (lon, lat, time)
+       varname = trim(isimip_name(isimip_var))
+       ierr = NF_INQ_VARID(ncid, varname, varid)
+       if (ierr /= NF_NOERR) then
+          print *, "Error: Variable ", trim(varname), " not found in file!"
+          call ldas_abort(LDAS_GENERIC_ERROR, Iam, "Variable missing!")
+       endif
+
+       ierr = NF_GET_VARA_REAL(ncid, varid, start, icount, tmp_grid)
        ierr = NF_CLOSE(ncid)
 
        do k = 1, N_catd   
           force_array(k,isimip_var) = tmp_grid(i_ind(k), j_ind(k))
        enddo
        
-       print *, "Test if values are not all empty as before force_array(5,longwaverad):", force_array(5,4)
-       
-
     enddo
 
     ! Convert forcing variables to match met_force_type units
@@ -3235,7 +3262,6 @@ contains
     met_force_obs_tile_new%LWdown = force_array(:, 4)                   ! Longwave Radiation [W/m²]
     met_force_obs_tile_new%SWdown = force_array(:, 5)                   ! Shortwave Radiation [W/m²]
     met_force_obs_tile_new%Wind   = force_array(:, 6)                   ! Wind Speed [m/s]
-    met_force_obs_tile_new%Rainf_C = 0.                                 ! Convective rainfall set to zero
     print *, "Converting variables went through without issue"
 
     ! Precipitation phase determination with proper unit conversion
