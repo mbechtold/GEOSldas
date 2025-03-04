@@ -3183,17 +3183,17 @@ contains
     
     !!!!! remove following section once timestamp read-in is correct
     ! Calculate the simulated datetime (starting from start_range_year)
-    integer :: simulated_year, simulated_month, simulated_day, simulated_hour
-    real :: fractional_day
-    simulated_year = start_range_year
-    fractional_day = real(hours_since_start) / 24.0
-    simulated_day = floor(fractional_day) + 1
-    simulated_hour = mod(hours_since_start, 24)
+    !integer :: simulated_year, simulated_month, simulated_day, simulated_hour
+    !real :: fractional_day
+    !simulated_year = start_range_year
+    !fractional_day = real(hours_since_start) / 24.0
+    !simulated_day = floor(fractional_day) + 1
+    !simulated_hour = mod(hours_since_start, 24)
 
     ! Now print the results as requested
-    print *, "hours_since_start = ", hours_since_start
-    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
-    print *, "Simulated time starting from ", start_range_year, " is: ", simulated_year, "-", simulated_month, "-", simulated_day, " ", simulated_hour, ":00:00"
+    !print *, "hours_since_start = ", hours_since_start
+    !print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
+    !print *, "Simulated time starting from ", start_range_year, " is: ", simulated_year, "-", simulated_month, "-", simulated_day, " ", simulated_hour, ":00:00"
     !!!!!!
 
 
