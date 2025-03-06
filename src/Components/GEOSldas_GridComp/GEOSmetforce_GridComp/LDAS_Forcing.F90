@@ -3073,6 +3073,13 @@ contains
     real :: es, e  ! Saturation vapor pressure, actual vapor pressure
     real,    parameter :: nodata_isimip      = 1.e20
 
+    ! because of float overlow error, check if Tair is reasonable
+    if (Tair < 200.0 .or. Tair > 350.0) then
+      print *, "ERROR: Unphysical Tair value:", Tair
+      SH = nodata_isimip
+      return
+    endif
+
     ! Compute saturation vapor pressure (Tetens formula)
     es = 6.112 * exp((17.67 * (Tair - 273.15)) / (Tair - 29.65)) * 100 ! In Pa
     e  = (RH / 100.0) * es  ! Convert RH% to actual vapor pressure in Pa
@@ -3182,23 +3189,15 @@ contains
     icount(3) = 1
     
     !!!!! remove following section once timestamp read-in is correct
-    ! Calculate the simulated datetime (starting from start_range_year)
-    !integer :: simulated_year, simulated_month, simulated_day, simulated_hour
-    !real :: fractional_day
-    !simulated_year = start_range_year
-    !fractional_day = real(hours_since_start) / 24.0
-    !simulated_day = floor(fractional_day) + 1
-    !simulated_hour = mod(hours_since_start, 24)
-
-    ! Now print the results as requested
-    !print *, "hours_since_start = ", hours_since_start
-    !print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
-    !print *, "Simulated time starting from ", start_range_year, " is: ", simulated_year, "-", simulated_month, "-", simulated_day, " ", simulated_hour, ":00:00"
+    print *, "hours_since_start = ", hours_since_start
+    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
     !!!!!!
 
 
     ! ----------------------------------------------------------------
     ! Compute indices for nearest neighbor interpolation
+    
+    print *, "N_catd (first time) =", N_catd
 
     do k=1, N_catd
        this_lon = tile_coord(k)%com_lon
@@ -3213,6 +3212,8 @@ contains
        elseif (i_ind(k) > isimip_grid_N_lon) then
           i_ind(k) = i_ind(k) - isimip_grid_N_lon
        endif
+       
+       print *, "Index k =", k, " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k)
 
     enddo
 
@@ -3264,6 +3265,10 @@ contains
     met_force_obs_tile_new%Wind   = force_array(:, 6)                   ! Wind Speed [m/s]
     print *, "Converting variables went through without issue"
 
+
+    print *, "N_catd (second time) =", N_catd
+
+
     ! Precipitation phase determination with proper unit conversion
     do k = 1, N_catd
        
@@ -3277,6 +3282,13 @@ contains
           met_force_obs_tile_new(k)%Snowf = 0.
        endif
     enddo
+    
+    ! to check values before RH_to_SH conversion, none of them should be 1.e20
+    print *, "RH=", force_array(k, 1), "Tair=", force_array(k, 7), "Psurf=", force_array(k, 3) * 100.0
+    
+    print *, "N_catd (third time) =", N_catd
+
+
 
     ! Before calling RH_to_SH, check for missing values:
     do k = 1, N_catd
