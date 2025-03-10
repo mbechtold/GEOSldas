@@ -328,6 +328,8 @@ contains
     !SA read in isimip subroutine
     elseif (index(met_tag, 'ISIMIP')/=0) then
 
+       print *, "Before get_isimip_netcdf: N_catd = ", N_catd
+
        call get_isimip_netcdf(date_time, met_path, N_catd, tile_coord, &
             met_force_obs_tile_new, nodata_forcing)
      
@@ -3197,23 +3199,39 @@ contains
     ! ----------------------------------------------------------------
     ! Compute indices for nearest neighbor interpolation
     
-    print *, "N_catd (first time) =", N_catd
+    print*, "N_catd before interpolation = ", N_catd
 
     do k=1, N_catd
+       print *, "k index = ", k
        this_lon = tile_coord(k)%com_lon
        this_lat = tile_coord(k)%com_lat
 
-       i_ind(k) = ceiling((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon)
-       j_ind(k) = ceiling((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat)
+       ! Compute integer grid indices
+       i_ind(k) = floor((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon) + 1
+       j_ind(k) = floor((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat) + 1
 
-       ! to handle incorrect longitude indexing around +-180 degrees
+
+       ! Compute fractional distances for interpolation
+       i_frac(k) = (this_lon - isimip_grid_ll_lon - (i_ind(k)-1) * isimip_grid_dlon) / isimip_grid_dlon
+       j_frac(k) = (this_lat - isimip_grid_ll_lat - (j_ind(k)-1) * isimip_grid_dlat) / isimip_grid_dlat
+
+       ! Longitude wrapping: Correct i_ind(k) if it exceeds grid boundaries
        if (i_ind(k) < 1) then
-          i_ind(k) = i_ind(k) + isimip_grid_N_lon
+          i_ind(k) = isimip_grid_N_lon
        elseif (i_ind(k) > isimip_grid_N_lon) then
-          i_ind(k) = i_ind(k) - isimip_grid_N_lon
+          i_ind(k) = 1
        endif
-       
-       print *, "Index k =", k, " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k)
+
+       ! Latitude boundaries: Correct j_ind(k) if it exceeds grid boundaries
+       if (j_ind(k) < 1) then
+          j_ind(k) = isimip_grid_N_lat
+       elseif (j_ind(k) > isimip_grid_N_lat) then
+          j_ind(k) = 1
+       endif 
+
+       ! Debugging print statement
+       print *, "Index k =", k, " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k), &
+       " i_frac(k)=", i_frac(k), " j_frac(k)=", j_frac(k)
 
     enddo
 
@@ -3250,10 +3268,28 @@ contains
        ierr = NF_GET_VARA_REAL(ncid, varid, start, icount, tmp_grid)
        ierr = NF_CLOSE(ncid)
 
-       do k = 1, N_catd   
-          force_array(k,isimip_var) = tmp_grid(i_ind(k), j_ind(k))
+       ! Loop through tiles
+       do k = 1, N_catd
+         ! Calculate the four surrounding grid points
+         i1 = i_ind(k)
+         j1 = j_ind(k)
+         i2 = i1 + 1
+         j2 = j1 + 1
+
+         ! Make sure we don't go out of bounds
+         if (i2 > isimip_grid_N_lon) i2 = 1
+         if (j2 > isimip_grid_N_lat) j2 = 1
+
+         ! Perform bilinear interpolation
+         interpolated_value = (1 - i_frac(k)) * (1 - j_frac(k)) * tmp_grid(i1, j1) + &
+                        i_frac(k) * (1 - j_frac(k)) * tmp_grid(i2, j1) + &
+                        (1 - i_frac(k)) * j_frac(k) * tmp_grid(i1, j2) + &
+                        i_frac(k) * j_frac(k) * tmp_grid(i2, j2)
+
+         ! Store the interpolated value in force_array
+         force_array(k, isimip_var) = interpolated_value
        enddo
-       
+
     enddo
 
     ! Convert forcing variables to match met_force_type units
@@ -3264,9 +3300,6 @@ contains
     met_force_obs_tile_new%SWdown = force_array(:, 5)                   ! Shortwave Radiation [W/m²]
     met_force_obs_tile_new%Wind   = force_array(:, 6)                   ! Wind Speed [m/s]
     print *, "Converting variables went through without issue"
-
-
-    print *, "N_catd (second time) =", N_catd
 
 
     ! Precipitation phase determination with proper unit conversion
@@ -3286,9 +3319,6 @@ contains
     ! to check values before RH_to_SH conversion, none of them should be 1.e20
     print *, "RH=", force_array(k, 1), "Tair=", force_array(k, 7), "Psurf=", force_array(k, 3) * 100.0
     
-    print *, "N_catd (third time) =", N_catd
-
-
 
     ! Before calling RH_to_SH, check for missing values:
     do k = 1, N_catd
