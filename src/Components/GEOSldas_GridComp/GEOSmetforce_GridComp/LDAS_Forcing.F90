@@ -3154,6 +3154,8 @@ contains
     character(4) :: new_year_str, end_year_str
     integer :: start_year, start_range_year, end_range_year
     character(len=40) :: varname
+    INTEGER :: i1, i2, j1, j2
+    real :: interpolated_value
 
     character(len=*), parameter :: Iam = 'get_isimip_netcdf'
     character(len=400) :: err_msg
