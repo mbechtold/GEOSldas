@@ -3203,8 +3203,8 @@ contains
 
        ! Compute integer grid indices
        i_ind(k) = floor((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon) + 1
-       j_ind(k) = floor((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat) + 1
-
+       ! Flip the latitude index so that 90° is at j=0 and -90° is at j=280 following ISIMIP
+       j_ind(k) = isimip_grid_N_lat - floor((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat)
 
        ! Longitude wrapping: Correct i_ind(k) if it exceeds grid boundaries
        if (i_ind(k) < 1) then
@@ -3215,9 +3215,9 @@ contains
 
        ! Latitude boundaries: Correct j_ind(k) if it exceeds grid boundaries
        if (j_ind(k) < 1) then
-          j_ind(k) = isimip_grid_N_lat
-       elseif (j_ind(k) > isimip_grid_N_lat) then
           j_ind(k) = 1
+       elseif (j_ind(k) > isimip_grid_N_lat) then
+          j_ind(k) = isimip_grid_N_lat
        endif 
 
        ! Debugging print statement
