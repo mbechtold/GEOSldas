@@ -328,8 +328,6 @@ contains
     !SA read in isimip subroutine
     elseif (index(met_tag, 'ISIMIP')/=0) then
 
-       print *, "Before get_isimip_netcdf: N_catd = ", N_catd
-
        call get_isimip_netcdf(date_time, met_path, N_catd, tile_coord, &
             met_force_obs_tile_new, nodata_forcing)
      
@@ -3154,8 +3152,6 @@ contains
     character(4) :: new_year_str, end_year_str
     integer :: start_year, start_range_year, end_range_year
     character(len=40) :: varname
-    INTEGER :: i1, i2, j1, j2
-    real :: interpolated_value
 
     character(len=*), parameter :: Iam = 'get_isimip_netcdf'
     character(len=400) :: err_msg
@@ -3201,10 +3197,7 @@ contains
     ! ----------------------------------------------------------------
     ! Compute indices for nearest neighbor interpolation
     
-    print*, "N_catd before interpolation = ", N_catd
-
     do k=1, N_catd
-       print *, "k index = ", k
        this_lon = tile_coord(k)%com_lon
        this_lat = tile_coord(k)%com_lat
 
@@ -3212,10 +3205,6 @@ contains
        i_ind(k) = floor((this_lon - isimip_grid_ll_lon) / isimip_grid_dlon) + 1
        j_ind(k) = floor((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat) + 1
 
-
-       ! Compute fractional distances for interpolation
-       i_frac(k) = (this_lon - isimip_grid_ll_lon - (i_ind(k)-1) * isimip_grid_dlon) / isimip_grid_dlon
-       j_frac(k) = (this_lat - isimip_grid_ll_lat - (j_ind(k)-1) * isimip_grid_dlat) / isimip_grid_dlat
 
        ! Longitude wrapping: Correct i_ind(k) if it exceeds grid boundaries
        if (i_ind(k) < 1) then
@@ -3232,8 +3221,8 @@ contains
        endif 
 
        ! Debugging print statement
-       print *, "Index k =", k, " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k), &
-       " i_frac(k)=", i_frac(k), " j_frac(k)=", j_frac(k)
+       print *, "Index k =", k, "this_lon(k)=", this_lon, "this_lat(k)=", this_lat, & 
+       " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k)
 
     enddo
 
@@ -3272,24 +3261,7 @@ contains
 
        ! Loop through tiles
        do k = 1, N_catd
-         ! Calculate the four surrounding grid points
-         i1 = i_ind(k)
-         j1 = j_ind(k)
-         i2 = i1 + 1
-         j2 = j1 + 1
-
-         ! Make sure we don't go out of bounds
-         if (i2 > isimip_grid_N_lon) i2 = 1
-         if (j2 > isimip_grid_N_lat) j2 = 1
-
-         ! Perform bilinear interpolation
-         interpolated_value = (1 - i_frac(k)) * (1 - j_frac(k)) * tmp_grid(i1, j1) + &
-                        i_frac(k) * (1 - j_frac(k)) * tmp_grid(i2, j1) + &
-                        (1 - i_frac(k)) * j_frac(k) * tmp_grid(i1, j2) + &
-                        i_frac(k) * j_frac(k) * tmp_grid(i2, j2)
-
-         ! Store the interpolated value in force_array
-         force_array(k, isimip_var) = interpolated_value
+         force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
        enddo
 
     enddo
@@ -3301,8 +3273,6 @@ contains
     met_force_obs_tile_new%LWdown = force_array(:, 4)                   ! Longwave Radiation [W/m²]
     met_force_obs_tile_new%SWdown = force_array(:, 5)                   ! Shortwave Radiation [W/m²]
     met_force_obs_tile_new%Wind   = force_array(:, 6)                   ! Wind Speed [m/s]
-    print *, "Converting variables went through without issue"
-
 
     ! Precipitation phase determination with proper unit conversion
     do k = 1, N_catd
@@ -3319,7 +3289,7 @@ contains
     enddo
     
     ! to check values before RH_to_SH conversion, none of them should be 1.e20
-    print *, "RH=", force_array(k, 1), "Tair=", force_array(k, 7), "Psurf=", force_array(k, 3) * 100.0
+    print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
     
 
     ! Before calling RH_to_SH, check for missing values:
