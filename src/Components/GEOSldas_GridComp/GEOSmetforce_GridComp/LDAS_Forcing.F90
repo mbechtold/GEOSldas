@@ -3220,10 +3220,6 @@ contains
           j_ind(k) = isimip_grid_N_lat
        endif 
 
-       ! Debugging print statement
-       print *, "Index k =", k, "this_lon(k)=", this_lon, "this_lat(k)=", this_lat, & 
-       " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k)
-
     enddo
 
     ! ----------------------------------------------------------------
@@ -3250,6 +3246,7 @@ contains
        end if
 
        varname = trim(isimip_name(isimip_var))
+       print *, "Checking variable name:", trim(varname)
        ierr = NF_INQ_VARID(ncid, varname, varid)
        if (ierr /= NF_NOERR) then
           print *, "Error: Variable ", trim(varname), " not found in file!"
@@ -3257,7 +3254,17 @@ contains
        endif
 
        ierr = NF_GET_VARA_REAL(ncid, varid, start, icount, tmp_grid)
+       if (ierr /= NF_NOERR) then
+          print *, "Error reading variable ", trim(varname), " from file!"
+       else
+          print *, "Successfully read ", trim(varname)
+          print *, "Sample values from tmp_grid: ", tmp_grid(1,1), tmp_grid(2,2), tmp_grid(3,3)
+       endif
+
        ierr = NF_CLOSE(ncid)
+       
+       print *, "Checking tmp_grid value at (149,45):", tmp_grid(149, 45)
+       print *, "Check entire tmp_grid:", tmpgrid
 
        ! Loop through tiles
        do k = 1, N_catd
