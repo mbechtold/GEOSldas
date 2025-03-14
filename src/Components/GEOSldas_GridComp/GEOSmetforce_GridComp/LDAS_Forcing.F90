@@ -3185,8 +3185,8 @@ contains
                         (date_time%month - 1) * 730 +                &
                         (date_time%day - 1) * 24 +                   &
                         date_time%hour
-    start(3)  = hours_since_start / dt_isimip_in_hours + 1
-    icount(3) = 1
+    start(1)  = (hours_since_start / dt_isimip_in_hours) + 1
+    icount(1) = 1
     
     !!!!! remove following section once timestamp read-in is correct
     print *, "hours_since_start = ", hours_since_start
@@ -3218,7 +3218,10 @@ contains
           j_ind(k) = 1
        elseif (j_ind(k) > isimip_grid_N_lat) then
           j_ind(k) = isimip_grid_N_lat
-       endif 
+       endif
+
+       print *, "Index k =", k, "this_lon(k)=", this_lon, "this_lat(k)=", this_lat, & 
+        " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k)
 
     enddo
 
@@ -3252,23 +3255,27 @@ contains
           print *, "Error: Variable ", trim(varname), " not found in file!"
           call ldas_abort(LDAS_GENERIC_ERROR, Iam, "Variable missing!")
        endif
+       
+       ! set lat and lon indices for start and reading in netcdf 
+       start(2) = 0
+       count(2) = 280
+       start(3) = 0
+       count(3) = 720
 
        ierr = NF_GET_VARA_REAL(ncid, varid, start, icount, tmp_grid)
        if (ierr /= NF_NOERR) then
           print *, "Error reading variable ", trim(varname), " from file!"
        else
           print *, "Successfully read ", trim(varname)
-          print *, "Sample values from tmp_grid: ", tmp_grid(1,1), tmp_grid(2,2), tmp_grid(3,3)
        endif
 
        ierr = NF_CLOSE(ncid)
        
-       print *, "Checking tmp_grid value at (149,45):", tmp_grid(149, 45)
-       print *, "Check entire tmp_grid:", tmp_grid
+       print *, "Checking tmp_grid value at (lat=45,lon=149):", tmp_grid(45, 149)
 
        ! Loop through tiles
        do k = 1, N_catd
-         force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
+         force_array(k, isimip_var) = tmp_grid(j_ind(k), i_ind(k))
        enddo
 
     enddo
