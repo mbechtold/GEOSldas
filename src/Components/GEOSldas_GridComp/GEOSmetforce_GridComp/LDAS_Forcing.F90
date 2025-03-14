@@ -3257,14 +3257,14 @@ contains
        endif
        
        ! set lat and lon indices for start and reading in netcdf 
-       start(2) = 0
+       start(2) = 1
        count(2) = 280
-       start(3) = 0
+       start(3) = 1
        count(3) = 720
 
        ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
        if (ierr /= NF_NOERR) then
-          print *, "Error reading variable ", trim(varname), " from file!"
+          print *, "Error reading variable ", trim(varname), " from file : ", trim(NF_STRERROR(ierr))
        else
           print *, "Successfully read ", trim(varname)
        endif
