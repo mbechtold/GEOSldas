@@ -3264,7 +3264,7 @@ contains
        ierr = NF_CLOSE(ncid)
        
        print *, "Checking tmp_grid value at (149,45):", tmp_grid(149, 45)
-       print *, "Check entire tmp_grid:", tmpgrid
+       print *, "Check entire tmp_grid:", tmp_grid
 
        ! Loop through tiles
        do k = 1, N_catd
