@@ -3142,7 +3142,7 @@ contains
     real, dimension(isimip_grid_N_lon, isimip_grid_N_lat) :: tmp_grid
     real, dimension(N_catd, 7) :: force_array
 
-    integer, dimension(3) :: start, icount
+    integer, dimension(3) :: start, count
 
     integer :: k, hours_since_start, isimip_var, ierr, ncid, varid
     real :: tol, this_lon, this_lat
@@ -3186,7 +3186,7 @@ contains
                         (date_time%day - 1) * 24 +                   &
                         date_time%hour
     start(1)  = (hours_since_start / dt_isimip_in_hours) + 1
-    icount(1) = 1
+    count(1) = 1
     
     !!!!! remove following section once timestamp read-in is correct
     print *, "hours_since_start = ", hours_since_start
@@ -3262,7 +3262,7 @@ contains
        start(3) = 0
        count(3) = 720
 
-       ierr = NF_GET_VARA_REAL(ncid, varid, start, icount, tmp_grid)
+       ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
        if (ierr /= NF_NOERR) then
           print *, "Error reading variable ", trim(varname), " from file!"
        else
