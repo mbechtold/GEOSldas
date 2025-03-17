@@ -3190,7 +3190,7 @@ contains
     
     !!!!! remove following section once timestamp read-in is correct
     print *, "hours_since_start = ", hours_since_start
-    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HH,":", MM
+    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
     !!!!!!
 
 
