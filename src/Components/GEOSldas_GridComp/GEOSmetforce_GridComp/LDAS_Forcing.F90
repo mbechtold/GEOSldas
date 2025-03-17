@@ -3190,7 +3190,7 @@ contains
     
     !!!!! remove following section once timestamp read-in is correct
     print *, "hours_since_start = ", hours_since_start
-    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
+    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HH,":", MM
     !!!!!!
 
 
@@ -3272,6 +3272,7 @@ contains
        ierr = NF_CLOSE(ncid)
        
        print *, "Checking tmp_grid value at (lat=45,lon=149):", tmp_grid(45, 149)
+       print *, "Check opposite tmp_grid loc:", tmp_grid(149,45), " - if not 1e20 switch" 
 
        ! Loop through tiles
        do k = 1, N_catd
@@ -3303,7 +3304,7 @@ contains
     enddo
     
     ! to check values before RH_to_SH conversion, none of them should be 1.e20
-    print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
+    ! print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
     
 
     ! Before calling RH_to_SH, check for missing values:
