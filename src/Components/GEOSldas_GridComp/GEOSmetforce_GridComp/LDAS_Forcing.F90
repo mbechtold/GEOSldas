@@ -3271,8 +3271,25 @@ contains
 
        ierr = NF_CLOSE(ncid)
        
-       print *, "Checking tmp_grid value at (lat=45,lon=149):", tmp_grid(45, 149)
-       print *, "Check opposite tmp_grid loc:", tmp_grid(149,45), " - if not 1e20 switch" 
+       ! Many print statements to check whether tmp_grid is erroneous or it is spatial indexing
+
+       ! Dimensions should be 280x720
+       print *, "Dimensions of tmp_grid: ", size(tmp_grid, 1), " x ", size(tmp_grid, 2)
+
+       ! Check whether all values are 1e20 and tmp_grid is wrong
+       real :: min_val, max_val
+       min_val = minval(tmp_grid)
+       max_val = maxval(tmp_grid)
+       print *, "Min and Max values in tmp_grid: ", min_val, max_val
+
+       ! again check whether all values are 1e20 and tmp grid is wrong
+       integer :: count_fill       
+       count_fill = count(tmp_grid == 1.e20)
+       print *, "Number of fill values in tmp_grid: ", count_fill, " out of ", size(tmp_grid)
+       
+       ! random check of locations, but gives 1e20 both
+       print *, "Check tmp_grid at (j_ind=45, i_ind=149):", tmp_grid(45, 149)
+       print *, "Check tmp_grid at (j_ind=149, i_ind=45):", tmp_grid(149, 45)
 
        ! Loop through tiles
        do k = 1, N_catd
