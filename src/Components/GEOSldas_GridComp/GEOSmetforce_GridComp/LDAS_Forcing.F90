@@ -3144,7 +3144,7 @@ contains
 
     integer, dimension(3) :: start, count
 
-    integer :: k, hours_since_start, isimip_var, ierr, ncid, varid, count_fill
+    integer :: k, hours_since_start, isimip_var, ierr, ncid, varid
     real :: tol, this_lon, this_lat, min_val, max_val
     character(4) :: YYYY, HHMM
     character(2) :: MM, DD
@@ -3281,13 +3281,15 @@ contains
        max_val = maxval(tmp_grid)
        print *, "Min and Max values in tmp_grid: ", min_val, max_val
 
-       ! again check whether all values are 1e20 and tmp grid is wrong
-       count_fill = count(tmp_grid == 1.e20)
-       print *, "Number of fill values in tmp_grid: ", count_fill, " out of ", size(tmp_grid)
-       
        ! random check of locations, but gives 1e20 both
        print *, "Check tmp_grid at (j_ind=45, i_ind=149):", tmp_grid(45, 149)
        print *, "Check tmp_grid at (j_ind=149, i_ind=45):", tmp_grid(149, 45)
+       print *, "Check tmp_grid at (j_ind=1, i_ind=1):", tmp_grid(1, 1)
+       print *, "Check tmp_grid at (j_ind=10, i_ind=10):", tmp_grid(10, 10)
+       print *, "Check tmp_grid at (j_ind=100, i_ind=100):", tmp_grid(100, 100)
+       print *, "Check tmp_grid at (j_ind=20, i_ind=80):", tmp_grid(20, 80)
+       print *, "Check tmp_grid at (j_ind=200, i_ind=400):", tmp_grid(200, 400)
+       print *, "Check tmp_grid at (j_ind=45, i_ind=380):", tmp_grid(45, 380)
 
        ! Loop through tiles
        do k = 1, N_catd
