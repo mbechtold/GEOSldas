@@ -3144,8 +3144,8 @@ contains
 
     integer, dimension(3) :: start, count
 
-    integer :: k, hours_since_start, isimip_var, ierr, ncid, varid
-    real :: tol, this_lon, this_lat
+    integer :: k, hours_since_start, isimip_var, ierr, ncid, varid, count_fill
+    real :: tol, this_lon, this_lat, min_val, max_val
     character(4) :: YYYY, HHMM
     character(2) :: MM, DD
     character(300) :: fname
@@ -3277,13 +3277,11 @@ contains
        print *, "Dimensions of tmp_grid: ", size(tmp_grid, 1), " x ", size(tmp_grid, 2)
 
        ! Check whether all values are 1e20 and tmp_grid is wrong
-       real :: min_val, max_val
        min_val = minval(tmp_grid)
        max_val = maxval(tmp_grid)
        print *, "Min and Max values in tmp_grid: ", min_val, max_val
 
        ! again check whether all values are 1e20 and tmp grid is wrong
-       integer :: count_fill       
        count_fill = count(tmp_grid == 1.e20)
        print *, "Number of fill values in tmp_grid: ", count_fill, " out of ", size(tmp_grid)
        
