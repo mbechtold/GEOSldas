@@ -3123,7 +3123,7 @@ contains
     real,    parameter :: isimip_grid_dlat   = 0.5
 
     integer, parameter :: dt_isimip_in_hours = 1  
-    real,    parameter :: nodata_isimip      = 1.e20
+    real,    parameter :: nodata_isimip      = 1.e10
 
     character(40), dimension(7) :: isimip_name = &
          (/             &
@@ -3143,6 +3143,7 @@ contains
     real, dimension(N_catd, 7) :: force_array
 
     integer, dimension(3) :: start, count
+    integer, dimension(2) :: idx_min
 
     integer :: k, hours_since_start, isimip_var, ierr, ncid, varid
     real :: tol, this_lon, this_lat, min_val, max_val
@@ -3262,6 +3263,9 @@ contains
        start(3) = 1
        count(3) = 720
 
+       print *, "Start array: ", start
+       print *, "Count array: ", count
+
        ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
        if (ierr /= NF_NOERR) then
           print *, "Error reading variable ", trim(varname), " from file : ", trim(NF_STRERROR(ierr))
@@ -3273,7 +3277,7 @@ contains
        
        ! Many print statements to check whether tmp_grid is erroneous or it is spatial indexing
 
-       ! Dimensions should be 280x720
+       ! Dimensions should be 720x280
        print *, "Dimensions of tmp_grid: ", size(tmp_grid, 1), " x ", size(tmp_grid, 2)
 
        ! Check whether all values are 1e20 and tmp_grid is wrong
@@ -3281,15 +3285,25 @@ contains
        max_val = maxval(tmp_grid)
        print *, "Min and Max values in tmp_grid: ", min_val, max_val
 
-       ! random check of locations, but gives 1e20 both
+       ! Check location of minimum values
+       idx_min = minloc(tmp_grid)
+       print *, "Location (lon, lat) of minimum value: ", idx_min(1), idx_min(2)  
+
+       ! random check of locations
        print *, "Check tmp_grid at (j_ind=45, i_ind=149):", tmp_grid(45, 149)
        print *, "Check tmp_grid at (j_ind=149, i_ind=45):", tmp_grid(149, 45)
-       print *, "Check tmp_grid at (j_ind=1, i_ind=1):", tmp_grid(1, 1)
-       print *, "Check tmp_grid at (j_ind=10, i_ind=10):", tmp_grid(10, 10)
-       print *, "Check tmp_grid at (j_ind=100, i_ind=100):", tmp_grid(100, 100)
-       print *, "Check tmp_grid at (j_ind=20, i_ind=80):", tmp_grid(20, 80)
        print *, "Check tmp_grid at (j_ind=200, i_ind=400):", tmp_grid(200, 400)
-       print *, "Check tmp_grid at (j_ind=45, i_ind=380):", tmp_grid(45, 380)
+       print *, "Check tmp_grid at (j_ind=400, i_ind=200):", tmp_grid(400, 200)
+
+       ! Now check a few values to ensure they are read correctly
+       print *, "Specific values of tmp_grid(i,j) in Canada:"
+       print *, tmp_grid(145:155, 40:50)  ! Adjust depending on your dimensions
+       print *, "Specific values of tmp_grid(j,i) in Canada:"
+       print *, tmp_grid(40:50, 145:155)  ! Adjust depending on your dimensions
+      
+       ! Print entire tmp_grid
+       print *, "Entire tmp_grid", tmp_grid
+
 
        ! Loop through tiles
        do k = 1, N_catd
