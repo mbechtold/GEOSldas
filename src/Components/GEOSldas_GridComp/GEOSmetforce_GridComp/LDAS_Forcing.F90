@@ -3302,12 +3302,12 @@ contains
        print *, tmp_grid(40:50, 145:155)  ! Adjust depending on your dimensions
       
        ! Print entire tmp_grid
-       print *, "Entire tmp_grid", tmp_grid
+       !print *, "Entire tmp_grid", tmp_grid
 
 
        ! Loop through tiles
        do k = 1, N_catd
-         force_array(k, isimip_var) = tmp_grid(j_ind(k), i_ind(k))
+         force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
        enddo
 
     enddo
