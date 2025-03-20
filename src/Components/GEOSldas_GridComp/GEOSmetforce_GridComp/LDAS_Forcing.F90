@@ -3186,8 +3186,8 @@ contains
                         (date_time%month - 1) * 730 +                &
                         (date_time%day - 1) * 24 +                   &
                         date_time%hour
-    start(1)  = (hours_since_start / dt_isimip_in_hours) + 1
-    count(1) = 1
+    start(3)  = (hours_since_start / dt_isimip_in_hours) + 1
+    count(3) = 1
     
     !!!!! remove following section once timestamp read-in is correct
     print *, "hours_since_start = ", hours_since_start
@@ -3260,8 +3260,8 @@ contains
        ! set lat and lon indices for start and reading in netcdf 
        start(2) = 1
        count(2) = 280
-       start(3) = 1
-       count(3) = 720
+       start(1) = 1
+       count(1) = 720
 
        print *, "Start array: ", start
        print *, "Count array: ", count
