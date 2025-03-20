@@ -3139,7 +3139,7 @@ contains
     integer, dimension(N_catd) :: i_ind, j_ind
     real, dimension(N_catd) :: i_frac, j_frac
 
-    real, dimension(isimip_grid_N_lon, isimip_grid_N_lat) :: tmp_grid
+    real, dimension(isimip_grid_N_lat, isimip_grid_N_lon) :: tmp_grid
     real, dimension(N_catd, 7) :: force_array
 
     integer, dimension(3) :: start, count
