@@ -3091,7 +3091,6 @@ contains
       SH = nodata_isimip
     else
       SH = (epsilon * e) / (Psurf - (1.0 - epsilon) * e)
-      print *, "RH_to_SH worked and result is: SH=", SH
     endif
 
   end function RH_to_SH
@@ -3221,9 +3220,6 @@ contains
           j_ind(k) = isimip_grid_N_lat
        endif
 
-       print *, "Index k =", k, "this_lon(k)=", this_lon, "this_lat(k)=", this_lat, & 
-        " i_ind(k)=", i_ind(k), " j_ind(k)=", j_ind(k)
-
     enddo
 
     ! ----------------------------------------------------------------
@@ -3272,37 +3268,21 @@ contains
 
        ierr = NF_CLOSE(ncid)
        
-       ! Many print statements to check whether tmp_grid is erroneous or it is spatial indexing
+       ! ISIMIP netcdf file range of i = 0-719 and j = 0-279
+       ! Range of indexing is i_ind = 1-720 and j_ind = 1-280
+       ! The lon and lat correspond to the right i_ind and i and j_ind and j
 
        ! Dimensions should be 720x280
-       print *, "Dimensions of tmp_grid: ", size(tmp_grid, 1), " x ", size(tmp_grid, 2)
-
-       ! Check whether all values are 1e20 and tmp_grid is wrong
-       min_val = minval(tmp_grid)
-       max_val = maxval(tmp_grid)
-       print *, "Min and Max values in tmp_grid: ", min_val, max_val
-
-       ! Check location of minimum values
-       idx_min = minloc(tmp_grid)
-       print *, "Location (lon, lat) of minimum value: ", idx_min(1), idx_min(2)  
+       !print *, "Dimensions of tmp_grid: ", size(tmp_grid, 1), " x ", size(tmp_grid, 2)
 
        ! random check of locations
-       print *, "Check tmp_grid at (j_ind=45, i_ind=149):", tmp_grid(45, 149)
-       print *, "Check tmp_grid at (j_ind=149, i_ind=45):", tmp_grid(149, 45)
+       !print *, "Check tmp_grid at (i_ind=148, j_ind=44):", tmp_grid(149, 45)
 
        ! Now check a few values to ensure they are read correctly
-       print *, "Specific values of tmp_grid(1,:):"
-       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions
-       print *, "Specific values of tmp_grid(719,:):"
-       print *, tmp_grid(719, :)  ! Adjust depending on your dimensions
-       print *, "Specific values of tmp_grid(:,1):"
-       print *, tmp_grid(:, 1)  ! Adjust depending on your dimensions
-       print *, "Specific values of tmp_grid(:,279):"
-       print *, tmp_grid(:, 279)  ! Adjust depending on your dimensions
-
-       ! Print entire tmp_grid
-       print *, "Entire tmp_grid", tmp_grid
-
+       !print *, "Specific values in netcdf at i = 0 (i_ind=1) and all latitudes:"
+       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions
+       !print *, "Specific values in netcdf at i = 719 (i_ind=720) and all latitudes:"
+       !print *, tmp_grid(720, :)  ! Adjust depending on your dimensions
 
        ! Loop through tiles
        do k = 1, N_catd
@@ -3334,7 +3314,7 @@ contains
     enddo
     
     ! to check values before RH_to_SH conversion, none of them should be 1.e20
-    print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
+    !print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
     
 
     ! Before calling RH_to_SH, check for missing values:
@@ -3342,7 +3322,7 @@ contains
       if (force_array(k,1) /= nodata_isimip .and. &
           force_array(k,7) /= nodata_isimip .and. &
           force_array(k,3) /= nodata_isimip) then
-          print *, "Calling RH_to_SH for k=", k
+          !print *, "Calling RH_to_SH for k=", k
           met_force_obs_tile_new(k)%Qair = RH_to_SH(force_array(k, 1), force_array(k, 7), force_array(k, 3) * 100.0)
       else
           print *, "Skipping RH_to_SH for k=", k, " due to missing data"
