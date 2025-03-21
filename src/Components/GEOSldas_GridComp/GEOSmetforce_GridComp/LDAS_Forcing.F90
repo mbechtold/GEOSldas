@@ -3139,7 +3139,7 @@ contains
     integer, dimension(N_catd) :: i_ind, j_ind
     real, dimension(N_catd) :: i_frac, j_frac
 
-    real, dimension(isimip_grid_N_lat, isimip_grid_N_lon) :: tmp_grid
+    real, dimension(isimip_grid_N_lon, isimip_grid_N_lat) :: tmp_grid
     real, dimension(N_catd, 7) :: force_array
 
     integer, dimension(3) :: start, count
@@ -3263,9 +3263,6 @@ contains
        start(1) = 1
        count(1) = 720
 
-       print *, "Start array: ", start
-       print *, "Count array: ", count
-
        ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
        if (ierr /= NF_NOERR) then
           print *, "Error reading variable ", trim(varname), " from file : ", trim(NF_STRERROR(ierr))
@@ -3292,17 +3289,19 @@ contains
        ! random check of locations
        print *, "Check tmp_grid at (j_ind=45, i_ind=149):", tmp_grid(45, 149)
        print *, "Check tmp_grid at (j_ind=149, i_ind=45):", tmp_grid(149, 45)
-       print *, "Check tmp_grid at (j_ind=200, i_ind=400):", tmp_grid(200, 400)
-       print *, "Check tmp_grid at (j_ind=400, i_ind=200):", tmp_grid(400, 200)
 
        ! Now check a few values to ensure they are read correctly
-       print *, "Specific values of tmp_grid(i,j) in Canada:"
-       print *, tmp_grid(145:155, 40:50)  ! Adjust depending on your dimensions
-       print *, "Specific values of tmp_grid(j,i) in Canada:"
-       print *, tmp_grid(40:50, 145:155)  ! Adjust depending on your dimensions
-      
+       print *, "Specific values of tmp_grid(1,:):"
+       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions
+       print *, "Specific values of tmp_grid(719,:):"
+       print *, tmp_grid(719, :)  ! Adjust depending on your dimensions
+       print *, "Specific values of tmp_grid(:,1):"
+       print *, tmp_grid(:, 1)  ! Adjust depending on your dimensions
+       print *, "Specific values of tmp_grid(:,279):"
+       print *, tmp_grid(:, 279)  ! Adjust depending on your dimensions
+
        ! Print entire tmp_grid
-       !print *, "Entire tmp_grid", tmp_grid
+       print *, "Entire tmp_grid", tmp_grid
 
 
        ! Loop through tiles
@@ -3335,7 +3334,7 @@ contains
     enddo
     
     ! to check values before RH_to_SH conversion, none of them should be 1.e20
-    ! print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
+    print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
     
 
     ! Before calling RH_to_SH, check for missing values:
