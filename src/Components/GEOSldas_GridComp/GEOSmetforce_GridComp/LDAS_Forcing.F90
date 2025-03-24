@@ -336,8 +336,8 @@ contains
  
        ! model-based dataset; call repair_forcing() below without certain limitations
        ! sometimes the Tair is too high, and for ocean values are 1E20 no-data
-       unlimited_Qair                 = .true.
-       unlimited_LWdown               = .true.
+       !unlimited_Qair                 = .true.
+       !unlimited_LWdown               = .true.
 
 
      
@@ -3067,10 +3067,66 @@ contains
 
   ! *************************************************************************
   ! *************************************************************************
+  
+  ! SA! fill all ISIMIP ocean 1E20 pixels with nearest neighbor interpolation
+  ! SA! uses a growing radius approach, slow for large grids but ok for ISIMIP
+  subroutine Fill_ocean_NN(tmp_grid, nlon, nlat, fill_value)
+    implicit none
+    integer, intent(in) :: nlon, nlat
+    real, intent(inout) :: tmp_grid(nlon, nlat)
+    real, intent(in) :: fill_value
+    integer :: i, j, di, dj, max_search_radius
+    real :: min_valid, max_valid
+    logical :: found
+
+    ! Compute min and max valid values from tmp_grid
+    min_valid = 1.0e30
+    max_valid = -1.0e30
+    do j = 1, nlat
+      do i = 1, nlon
+        if (tmp_grid(i, j) /= fill_value) then
+          min_valid = min(min_valid, tmp_grid(i, j))
+          max_valid = max(max_valid, tmp_grid(i, j))
+        endif
+      enddo
+    enddo
+
+    ! Nearest neighbor fill
+    max_search_radius = max(nlon, nlat)  ! Worst-case search radius
+
+    do j = 1, nlat
+      do i = 1, nlon
+        if (tmp_grid(i, j) == fill_value) then
+          found = .false.
+
+          ! Expand search radius outward until a valid land pixel is found
+          do di = 1, max_search_radius
+            do dj = -di, di
+              if (i + dj >= 1 .and. i + dj <= nlon) then
+                if (j + di >= 1 .and. j + di <= nlat) then
+                  if (tmp_grid(i + dj, j + di) /= fill_value) then
+                    tmp_grid(i, j) = tmp_grid(i + dj, j + di)
+                    found = .true.
+                    exit
+                  endif
+                endif
+              endif
+            enddo
+            if (found) exit
+          enddo
+
+          ! Ensure filled value is within the valid range
+          if (found) then
+            tmp_grid(i, j) = max(min_valid, min(max_valid, tmp_grid(i, j)))
+          endif
+        endif
+      enddo
+    enddo
+
+  end subroutine Fill_ocean_NN
 
 
-  !SA first try subroutine for isimip forcing data
-  !SA first define fucntion to convert RH to SH, from ISIMIP data
+  ! SA fucntion to convert RH to SH for interpolated ISIMIP data
   function RH_to_SH(RH, Tair, Psurf) result(SH)
     implicit none
     real, intent(in) :: RH, Tair, Psurf    ! %, K, Pa
@@ -3127,7 +3183,7 @@ contains
     real,    parameter :: isimip_grid_dlat   = 0.5
 
     integer, parameter :: dt_isimip_in_hours = 1  
-    real,    parameter :: nodata_isimip      = 1.e10
+    real,    parameter :: nodata_isimip      = 1.e20
     integer, allocatable :: land_mask(:)
 
     character(40), dimension(7) :: isimip_name = &
@@ -3273,7 +3329,18 @@ contains
        endif
 
        ierr = NF_CLOSE(ncid)
+    
+       print *, "Specific values of tmp_grid(1,:) before ocean filling:"
+       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       print *, "Entire tmp_grid before ocean filling: ", tmp_grid
+
+       ! Fill ocean pixels using nearest neighbor interpolation
+       call Fill_ocean_NN(tmp_grid, isimip_grid_N_lon, isimip_grid_N_lat, 1.0e20)
        
+       print *, "Specific values of tmp_grid(1,:) after ocean filling:"
+       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       print *, "Entire tmp_grid after ocean filling: ", tmp_grid
+
        ! Loop through tiles
        do k = 1, N_catd
          force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
