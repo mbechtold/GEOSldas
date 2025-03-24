@@ -332,8 +332,14 @@ contains
             met_force_obs_tile_new, nodata_forcing)
      
        ! Subroutine get_isimip_netcdf() provided backward-looking fluxes.
-
        bkwd_looking_fluxes            = .true.
+ 
+       ! model-based dataset; call repair_forcing() below without certain limitations
+       ! sometimes the Tair is too high, and for ocean values are 1E20 no-data
+       unlimited_Qair                 = .true.
+       unlimited_LWdown               = .true.
+
+
      
     else ! assume forcing from GEOS5 GCM ("DAS" or "MERRA") output
        
@@ -3073,11 +3079,10 @@ contains
     real :: es, e  ! Saturation vapor pressure, actual vapor pressure
     real,    parameter :: nodata_isimip      = 1.e20
 
-    ! because of float overlow error, check if Tair is reasonable
-    if (Tair < 200.0 .or. Tair > 350.0) then
-      print *, "ERROR: Unphysical Tair value:", Tair
-      SH = nodata_isimip
-      return
+    ! Skip processing if any input is missing (ocean pixel)
+    if (RH == nodata_isimip .or. Tair == nodata_isimip .or. Psurf == nodata_isimip) then
+        SH = nodata_isimip
+        return
     endif
 
     ! Compute saturation vapor pressure (Tetens formula)
@@ -3123,6 +3128,7 @@ contains
 
     integer, parameter :: dt_isimip_in_hours = 1  
     real,    parameter :: nodata_isimip      = 1.e10
+    integer, allocatable :: land_mask(:)
 
     character(40), dimension(7) :: isimip_name = &
          (/             &
@@ -3268,22 +3274,6 @@ contains
 
        ierr = NF_CLOSE(ncid)
        
-       ! ISIMIP netcdf file range of i = 0-719 and j = 0-279
-       ! Range of indexing is i_ind = 1-720 and j_ind = 1-280
-       ! The lon and lat correspond to the right i_ind and i and j_ind and j
-
-       ! Dimensions should be 720x280
-       !print *, "Dimensions of tmp_grid: ", size(tmp_grid, 1), " x ", size(tmp_grid, 2)
-
-       ! random check of locations
-       !print *, "Check tmp_grid at (i_ind=148, j_ind=44):", tmp_grid(149, 45)
-
-       ! Now check a few values to ensure they are read correctly
-       !print *, "Specific values in netcdf at i = 0 (i_ind=1) and all latitudes:"
-       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions
-       !print *, "Specific values in netcdf at i = 719 (i_ind=720) and all latitudes:"
-       !print *, tmp_grid(720, :)  ! Adjust depending on your dimensions
-
        ! Loop through tiles
        do k = 1, N_catd
          force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
