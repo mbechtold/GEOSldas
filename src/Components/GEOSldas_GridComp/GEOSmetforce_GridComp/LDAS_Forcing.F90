@@ -3070,7 +3070,7 @@ contains
   
   ! SA! fill all ISIMIP ocean 1E20 pixels with nearest neighbor interpolation
   ! SA! uses a growing radius approach, slow for large grids but ok for ISIMIP
-  subroutine Fill_ocean_FMM(tmp_grid, nlon, nlat, fill_value)
+  subroutine Fill_ocean_NN(tmp_grid, nlon, nlat, fill_value)
     implicit none
     integer, intent(in) :: nlon, nlat
     real, intent(inout) :: tmp_grid(nlon, nlat)
@@ -3146,7 +3146,7 @@ contains
       enddo
     enddo
 
-  end subroutine Fill_ocean_FMM
+  end subroutine Fill_ocean_NN
 
 
   ! SA fucntion to convert RH to SH for interpolated ISIMIP data
