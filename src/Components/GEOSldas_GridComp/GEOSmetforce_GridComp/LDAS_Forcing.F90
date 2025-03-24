@@ -3075,7 +3075,7 @@ contains
     integer, intent(in) :: nlon, nlat
     real, intent(inout) :: tmp_grid(nlon, nlat)
     real, intent(in) :: fill_value
-    integer :: i, j, ni, nj, front, back, dx(4), dy(4)
+    integer :: i, j, ni, nj, di, front, back, dx(4), dy(4)
     real :: min_valid, max_valid
     integer, parameter :: max_queue_size = 720 * 280  ! Max grid size
     integer :: queue_x(max_queue_size), queue_y(max_queue_size)
@@ -3120,9 +3120,9 @@ contains
       front = front + 1
 
       ! Try all 4 directions
-      do ni = 1, 4
-        ni = i + dx(ni)
-        nj = j + dy(ni)
+      do di = 1, 4
+        ni = i + dx(di)
+        nj = j + dy(di)
 
         ! Check if within bounds and not visited
         if (ni >= 1 .and. ni <= nlon .and. nj >= 1 .and. nj <= nlat) then
