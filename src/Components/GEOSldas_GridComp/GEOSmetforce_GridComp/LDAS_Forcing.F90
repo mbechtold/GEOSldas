@@ -3330,16 +3330,16 @@ contains
 
        ierr = NF_CLOSE(ncid)
     
-       print *, "Specific values of tmp_grid(1,:) before ocean filling:"
-       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
-       print *, "Entire tmp_grid before ocean filling: ", tmp_grid
+       !print *, "Specific values of tmp_grid(1,:) before ocean filling:"
+       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       !print *, "Entire tmp_grid before ocean filling: ", tmp_grid
 
        ! Fill ocean pixels using nearest neighbor interpolation
        call Fill_ocean_NN(tmp_grid, isimip_grid_N_lon, isimip_grid_N_lat, 1.0e20)
        
-       print *, "Specific values of tmp_grid(1,:) after ocean filling:"
-       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
-       print *, "Entire tmp_grid after ocean filling: ", tmp_grid
+       !print *, "Specific values of tmp_grid(1,:) after ocean filling:"
+       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       !print *, "Entire tmp_grid after ocean filling: ", tmp_grid
 
        ! Loop through tiles
        do k = 1, N_catd
