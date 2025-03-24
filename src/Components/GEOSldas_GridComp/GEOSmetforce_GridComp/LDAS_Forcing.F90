@@ -3070,16 +3070,21 @@ contains
   
   ! SA! fill all ISIMIP ocean 1E20 pixels with nearest neighbor interpolation
   ! SA! uses a growing radius approach, slow for large grids but ok for ISIMIP
-  subroutine Fill_ocean_NN(tmp_grid, nlon, nlat, fill_value)
+  subroutine Fill_ocean_FMM(tmp_grid, nlon, nlat, fill_value)
     implicit none
     integer, intent(in) :: nlon, nlat
     real, intent(inout) :: tmp_grid(nlon, nlat)
     real, intent(in) :: fill_value
-    integer :: i, j, di, dj, max_search_radius
+    integer :: i, j, ni, nj, front, back, dx(4), dy(4)
     real :: min_valid, max_valid
-    logical :: found
+    integer, parameter :: max_queue_size = 720 * 280  ! Max grid size
+    integer :: queue_x(max_queue_size), queue_y(max_queue_size)
+    logical :: visited(nlon, nlat)
 
-    ! Compute min and max valid values from tmp_grid
+    ! Direction vectors (N, S, E, W)
+    data dx / 0, 0, -1, 1 /, dy / -1, 1, 0, 0 /
+
+    ! Compute min/max valid values
     min_valid = 1.0e30
     max_valid = -1.0e30
     do j = 1, nlat
@@ -3091,39 +3096,57 @@ contains
       enddo
     enddo
 
-    ! Nearest neighbor fill
-    max_search_radius = max(nlon, nlat)  ! Worst-case search radius
+    ! Initialize queue
+    front = 1
+    back = 0
+    visited = .false.
 
+    ! Enqueue all land pixels
     do j = 1, nlat
       do i = 1, nlon
-        if (tmp_grid(i, j) == fill_value) then
-          found = .false.
+        if (tmp_grid(i, j) /= fill_value) then
+          back = back + 1
+          queue_x(back) = i
+          queue_y(back) = j
+          visited(i, j) = .true.
+        endif
+      enddo
+    enddo
 
-          ! Expand search radius outward until a valid land pixel is found
-          do di = 1, max_search_radius
-            do dj = -di, di
-              if (i + dj >= 1 .and. i + dj <= nlon) then
-                if (j + di >= 1 .and. j + di <= nlat) then
-                  if (tmp_grid(i + dj, j + di) /= fill_value) then
-                    tmp_grid(i, j) = tmp_grid(i + dj, j + di)
-                    found = .true.
-                    exit
-                  endif
-                endif
-              endif
-            enddo
-            if (found) exit
-          enddo
+    ! Perform FMM-like propagation
+    do while (front <= back)
+      i = queue_x(front)
+      j = queue_y(front)
+      front = front + 1
 
-          ! Ensure filled value is within the valid range
-          if (found) then
-            tmp_grid(i, j) = max(min_valid, min(max_valid, tmp_grid(i, j)))
+      ! Try all 4 directions
+      do ni = 1, 4
+        ni = i + dx(ni)
+        nj = j + dy(ni)
+
+        ! Check if within bounds and not visited
+        if (ni >= 1 .and. ni <= nlon .and. nj >= 1 .and. nj <= nlat) then
+          if (.not. visited(ni, nj) .and. tmp_grid(ni, nj) == fill_value) then
+            tmp_grid(ni, nj) = tmp_grid(i, j)  ! Assign nearest land value
+            visited(ni, nj) = .true.
+            back = back + 1
+            queue_x(back) = ni
+            queue_y(back) = nj
           endif
         endif
       enddo
     enddo
 
-  end subroutine Fill_ocean_NN
+    ! Ensure values stay within min/max range
+    do j = 1, nlat
+      do i = 1, nlon
+        if (tmp_grid(i, j) /= fill_value) then
+          tmp_grid(i, j) = max(min_valid, min(max_valid, tmp_grid(i, j)))
+        endif
+      enddo
+    enddo
+
+  end subroutine Fill_ocean_FMM
 
 
   ! SA fucntion to convert RH to SH for interpolated ISIMIP data
