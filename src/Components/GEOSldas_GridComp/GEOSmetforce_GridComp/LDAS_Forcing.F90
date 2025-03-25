@@ -3075,16 +3075,12 @@ contains
     integer, intent(in) :: nlon, nlat
     real, intent(inout) :: tmp_grid(nlon, nlat)
     real, intent(in) :: fill_value
-    integer :: i, j, ni, nj, di, front, back, dx(4), dy(4)
+    integer :: i, j, di, dj, max_search_radius, valid_count
     real :: min_valid, max_valid
-    integer, parameter :: max_queue_size = 720 * 280  ! Max grid size
-    integer :: queue_x(max_queue_size), queue_y(max_queue_size)
-    logical :: visited(nlon, nlat)
+    logical :: found
+    real :: sum_valid, default_ocean_value
 
-    ! Direction vectors (N, S, E, W)
-    data dx / 0, 0, -1, 1 /, dy / -1, 1, 0, 0 /
-
-    ! Compute min/max valid values
+    ! Compute min and max valid values from tmp_grid
     min_valid = 1.0e30
     max_valid = -1.0e30
     do j = 1, nlat
@@ -3096,52 +3092,51 @@ contains
       enddo
     enddo
 
-    ! Initialize queue
-    front = 1
-    back = 0
-    visited = .false.
-
-    ! Enqueue all land pixels
+    ! Compute mean of valid values in tmp_grid
+    sum_valid = 0.0
+    valid_count = 0
     do j = 1, nlat
       do i = 1, nlon
         if (tmp_grid(i, j) /= fill_value) then
-          back = back + 1
-          queue_x(back) = i
-          queue_y(back) = j
-          visited(i, j) = .true.
+          sum_valid = sum_valid + tmp_grid(i, j)
+          valid_count = valid_count + 1
         endif
       enddo
     enddo
 
-    ! Perform FMM-like propagation
-    do while (front <= back)
-      i = queue_x(front)
-      j = queue_y(front)
-      front = front + 1
 
-      ! Try all 4 directions
-      do di = 1, 4
-        ni = i + dx(di)
-        nj = j + dy(di)
+    ! Avoid division by zero
+    if (valid_count > 0) then
+      default_ocean_value = sum_valid / valid_count
+    else
+      default_ocean_value = 0.0  ! Fallback in case all values are fill_value
+    endif
 
-        ! Check if within bounds and not visited
-        if (ni >= 1 .and. ni <= nlon .and. nj >= 1 .and. nj <= nlat) then
-          if (.not. visited(ni, nj) .and. tmp_grid(ni, nj) == fill_value) then
-            tmp_grid(ni, nj) = tmp_grid(i, j)  ! Assign nearest land value
-            visited(ni, nj) = .true.
-            back = back + 1
-            queue_x(back) = ni
-            queue_y(back) = nj
-          endif
-        endif
-      enddo
-    enddo
+    ! Limit nearest neighbor search to radius 3
+    max_search_radius = 3
 
-    ! Ensure values stay within min/max range
+    ! Nearest-neighbor fill for missing ocean pixels
     do j = 1, nlat
       do i = 1, nlon
-        if (tmp_grid(i, j) /= fill_value) then
-          tmp_grid(i, j) = max(min_valid, min(max_valid, tmp_grid(i, j)))
+        if (tmp_grid(i, j) == fill_value) then
+          found = .false.
+
+          ! Expand search outward, up to radius 3
+          do di = 1, max_search_radius
+            do dj = -di, di
+              if (i + dj >= 1 .and. i + dj <= nlon .and. j + di >= 1 .and. j + di <= nlat) then
+                if (tmp_grid(i + dj, j + di) /= fill_value) then
+                  tmp_grid(i, j) = tmp_grid(i + dj, j + di)
+                  found = .true.
+                  exit
+                endif
+              endif
+            enddo
+            if (found) exit
+          enddo
+
+          ! If no valid neighbor is found within radius 3, assign the mean value
+          if (.not. found) tmp_grid(i, j) = default_ocean_value
         endif
       enddo
     enddo
