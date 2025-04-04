@@ -3403,7 +3403,6 @@ contains
     do k = 1, N_catd
        
        met_force_obs_tile_new(k)%Rainf_C = 0.                                 ! Convective rainfall set to zero
-       print*, "Check if Tzero actually is 274.65K", Tzero
        if (met_force_obs_tile_new(k)%Tair < Tzero) then
           met_force_obs_tile_new(k)%Rainf = 0.
           met_force_obs_tile_new(k)%Snowf = force_array(k, 2) / 3600.0  ! Convert mm/hour to kg/m²/s
