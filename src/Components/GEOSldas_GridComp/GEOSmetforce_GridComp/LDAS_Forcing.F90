@@ -3203,6 +3203,11 @@ contains
     integer, parameter :: dt_isimip_in_hours = 1  
     real,    parameter :: nodata_isimip      = 1.e20
     integer, allocatable :: land_mask(:)
+    logical :: is_leap
+    integer, dimension(12) :: month_hours
+
+    ! Tzero variable based on comparison to cumulative daily snowfall
+    real,    parameter :: Tzero              = 274.65 ! K
 
     character(40), dimension(7) :: isimip_name = &
          (/             &
@@ -3260,18 +3265,42 @@ contains
     start_range_year = ((start_year - 1) / 5) * 5 + 1
     end_range_year = start_range_year + 4
 
-    ! Calculate `hours_since_start` from start_range_year-01-01 00:00:00
-    hours_since_start = (date_time%year - start_range_year) * 8760 +  &
-                        (date_time%month - 1) * 730 +                &
-                        (date_time%day - 1) * 24 +                   &
-                        date_time%hour
-    start(3)  = (hours_since_start / dt_isimip_in_hours) + 1
+    ! Determine if the current year is a leap year
+    is_leap = (mod(date_time%year, 4) == 0 .and. mod(date_time%year, 100) /= 0) .or. (mod(date_time%year, 400) == 0)
+
+    ! Define month lengths in hours
+    month_hours = (/ 744, 672, 744, 720, 744, 720, 744, 744, 720, 744, 720, 744 /)  
+    if (is_leap) month_hours(2) = 696  ! Adjust February for leap years
+
+    ! Compute hours since the start of the reference period
+    hours_since_start = 0
+ 
+    ! Add full years
+    do k = start_range_year, date_time%year - 1
+        if ((mod(k, 4) == 0 .and. mod(k, 100) /= 0) .or. mod(k, 400) == 0) then
+            hours_since_start = hours_since_start + 8784  ! Leap year
+        else
+            hours_since_start = hours_since_start + 8760  ! Normal year
+        end if
+    end do
+ 
+    ! Add full months of the current year
+    do k = 1, date_time%month - 1
+        hours_since_start = hours_since_start + month_hours(k)
+    end do
+ 
+    ! Add full days of the current month
+    hours_since_start = hours_since_start + (date_time%day - 1) * 24
+ 
+    ! Add current hour
+    hours_since_start = hours_since_start + date_time%hour
+ 
+    ! Correct time indexing for NetCDF
+    start(3) = hours_since_start + 1
     count(3) = 1
     
-    !!!!! remove following section once timestamp read-in is correct
     print *, "hours_since_start = ", hours_since_start
     print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
-    !!!!!!
 
 
     ! ----------------------------------------------------------------
@@ -3309,7 +3338,6 @@ contains
 
        ! Update the year range to match the file naming convention
        write (YYYY, '(i4.4)') start_range_year
-
        write(end_year_str, '(i4)') end_range_year
 
        ! Assemble the filename dynamically using the calculated years
@@ -3326,7 +3354,6 @@ contains
        end if
 
        varname = trim(isimip_name(isimip_var))
-       print *, "Checking variable name:", trim(varname)
        ierr = NF_INQ_VARID(ncid, varname, varid)
        if (ierr /= NF_NOERR) then
           print *, "Error: Variable ", trim(varname), " not found in file!"
@@ -3342,8 +3369,6 @@ contains
        ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
        if (ierr /= NF_NOERR) then
           print *, "Error reading variable ", trim(varname), " from file : ", trim(NF_STRERROR(ierr))
-       else
-          print *, "Successfully read ", trim(varname)
        endif
 
        ierr = NF_CLOSE(ncid)
@@ -3378,7 +3403,7 @@ contains
     do k = 1, N_catd
        
        met_force_obs_tile_new(k)%Rainf_C = 0.                                 ! Convective rainfall set to zero
-       
+       print*, "Check if Tzero actually is 274.65K", Tzero
        if (met_force_obs_tile_new(k)%Tair < Tzero) then
           met_force_obs_tile_new(k)%Rainf = 0.
           met_force_obs_tile_new(k)%Snowf = force_array(k, 2) / 3600.0  ! Convert mm/hour to kg/m²/s
@@ -3388,10 +3413,6 @@ contains
        endif
     enddo
     
-    ! to check values before RH_to_SH conversion, none of them should be 1.e20
-    !print *, "RH=", force_array(:, 1), "Tair=", force_array(:, 7), "Psurf=", force_array(:, 3) * 100.0
-    
-
     ! Before calling RH_to_SH, check for missing values:
     do k = 1, N_catd
       if (force_array(k,1) /= nodata_isimip .and. &
