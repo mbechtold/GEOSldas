@@ -3296,8 +3296,8 @@ contains
     hours_since_start = hours_since_start + date_time%hour
  
     ! Correct time indexing for NetCDF
-    start(1) = hours_since_start + 1
-    count(1) = 1
+    start(3) = hours_since_start + 1
+    count(3) = 1
     
     print *, "hours_since_start = ", hours_since_start
     print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
@@ -3363,8 +3363,8 @@ contains
        ! set lat and lon indices for start and reading in netcdf 
        start(2) = 1
        count(2) = 280
-       start(3) = 1
-       count(3) = 720
+       start(1) = 1
+       count(1) = 720
 
        ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
        if (ierr /= NF_NOERR) then
