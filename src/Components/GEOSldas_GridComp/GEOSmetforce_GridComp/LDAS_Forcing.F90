@@ -3296,7 +3296,7 @@ contains
     hours_since_start = hours_since_start + date_time%hour
  
     ! Correct time indexing for NetCDF
-    start(1) = hours_since_start
+    start(1) = hours_since_start + 1
     count(1) = 1
     
     print *, "hours_since_start = ", hours_since_start
@@ -3361,9 +3361,9 @@ contains
        endif
        
        ! set lat and lon indices for start and reading in netcdf 
-       start(2) = 0
+       start(2) = 1
        count(2) = 280
-       start(3) = 0
+       start(3) = 1
        count(3) = 720
 
        ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
@@ -3373,15 +3373,15 @@ contains
 
        ierr = NF_CLOSE(ncid)
     
-       !print *, "Specific values of tmp_grid(1,:) before ocean filling:"
-       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       print *, "Specific values of tmp_grid(1,:) before ocean filling:"
+       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
        !print *, "Entire tmp_grid before ocean filling: ", tmp_grid
 
        ! Fill ocean pixels using nearest neighbor interpolation
        call Fill_ocean_NN(tmp_grid, isimip_grid_N_lon, isimip_grid_N_lat, 1.0e20)
        
-       !print *, "Specific values of tmp_grid(1,:) after ocean filling:"
-       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       print *, "Specific values of tmp_grid(1,:) after ocean filling:"
+       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
        !print *, "Entire tmp_grid after ocean filling: ", tmp_grid
 
        ! Loop through tiles
