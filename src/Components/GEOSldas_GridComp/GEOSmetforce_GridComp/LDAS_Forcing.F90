@@ -3373,8 +3373,8 @@ contains
 
        ierr = NF_CLOSE(ncid)
     
-       print *, "Specific values of tmp_grid(1,:) before ocean filling:"
-       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       !print *, "Specific values of tmp_grid(1,:) before ocean filling:"
+       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
        !print *, "Entire tmp_grid before ocean filling: ", tmp_grid
 
        ! Fill ocean pixels using nearest neighbor interpolation
@@ -3387,6 +3387,19 @@ contains
        ! Loop through tiles
        do k = 1, N_catd
          force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
+       enddo
+
+       print *, '--- Comparing tmp_grid(1,:) to force_array(k, isimip_var) where i_ind(k) == 1 ---'
+
+       do k = 1, N_catd
+         if (i_ind(k) == 1) then
+           print *, 'k = ', k, ', j_ind(k) = ', j_ind(k)
+           print *, 'tmp_grid(1, j_ind(k)) = ', tmp_grid(1, j_ind(k))
+           print *, 'force_array(k, isimip_var) = ', force_array(k, isimip_var)
+           if (abs(tmp_grid(1, j_ind(k)) - force_array(k, isimip_var)) > 1.0e-5) then
+             print *, ' --> Mismatch!'
+           endif
+         endif
        enddo
 
     enddo
