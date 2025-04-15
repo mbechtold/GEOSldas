@@ -1,4 +1,4 @@
-#include "MAPL_Generic.h"
+#includg "MAPL_Generic.h"
 
 module LDAS_ForceMod
 
@@ -332,7 +332,7 @@ contains
             met_force_obs_tile_new, nodata_forcing)
      
        ! Subroutine get_isimip_netcdf() provided backward-looking fluxes.
-       bkwd_looking_fluxes            = .true.
+       !bkwd_looking_fluxes            = .true.
  
        ! model-based dataset; call repair_forcing() below without certain limitations
        ! sometimes the Tair is too high, and for ocean values are 1E20 no-data
@@ -3195,8 +3195,8 @@ contains
     ! ISIMIP grid parameters
     integer, parameter :: isimip_grid_N_lon  = 720
     integer, parameter :: isimip_grid_N_lat  = 280
-    real,    parameter :: isimip_grid_ll_lon = -180.0
-    real,    parameter :: isimip_grid_ll_lat = -56.0
+    real,    parameter :: isimip_grid_ll_lon = -179.75
+    real,    parameter :: isimip_grid_ll_lat = -55.75
     real,    parameter :: isimip_grid_dlon   = 0.5
     real,    parameter :: isimip_grid_dlat   = 0.5
 
@@ -3373,8 +3373,8 @@ contains
 
        ierr = NF_CLOSE(ncid)
     
-       !print *, "Specific values of tmp_grid(1,:) before ocean filling:"
-       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       print *, "Specific values of tmp_grid(1,:) before ocean filling:"
+       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
        !print *, "Entire tmp_grid before ocean filling: ", tmp_grid
 
        ! Fill ocean pixels using nearest neighbor interpolation
