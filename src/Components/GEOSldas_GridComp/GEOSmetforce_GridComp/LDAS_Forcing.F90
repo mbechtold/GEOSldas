@@ -3299,7 +3299,7 @@ contains
     start(3) = hours_since_start + 1
     count(3) = 1
     
-    print *, "hours_since_start = ", hours_since_start
+    print *, "hours_since_start = ", hours_since_start, '+ 1'
     print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
 
 
@@ -3373,15 +3373,15 @@ contains
 
        ierr = NF_CLOSE(ncid)
     
-       print *, "Specific values of tmp_grid(1,:) before ocean filling:"
-       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       !print *, "Specific values of tmp_grid(1,:) before ocean filling:"
+       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
        !print *, "Entire tmp_grid before ocean filling: ", tmp_grid
 
        ! Fill ocean pixels using nearest neighbor interpolation
        call Fill_ocean_NN(tmp_grid, isimip_grid_N_lon, isimip_grid_N_lat, 1.0e20)
        
-       print *, "Specific values of tmp_grid(1,:) after ocean filling:"
-       print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
+       !print *, "Specific values of tmp_grid(1,:) after ocean filling:"
+       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
        !print *, "Entire tmp_grid after ocean filling: ", tmp_grid
 
        ! Loop through tiles
@@ -3389,18 +3389,18 @@ contains
          force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
        enddo
 
-       print *, '--- Comparing tmp_grid(1,:) to force_array(k, isimip_var) where i_ind(k) == 1 ---'
+       !print *, '--- Comparing tmp_grid(1,:) to force_array(k, isimip_var) where i_ind(k) == 1 ---'
 
-       do k = 1, N_catd
-         if (i_ind(k) == 1) then
-           print *, 'k = ', k, ', j_ind(k) = ', j_ind(k)
-           print *, 'tmp_grid(1, j_ind(k)) = ', tmp_grid(1, j_ind(k))
-           print *, 'force_array(k, isimip_var) = ', force_array(k, isimip_var)
-           if (abs(tmp_grid(1, j_ind(k)) - force_array(k, isimip_var)) > 1.0e-5) then
-             print *, ' --> Mismatch!'
-           endif
-         endif
-       enddo
+       !do k = 1, N_catd
+       !  if (i_ind(k) == 1) then
+       !    print *, 'k = ', k, ', j_ind(k) = ', j_ind(k)
+       !    print *, 'tmp_grid(1, j_ind(k)) = ', tmp_grid(1, j_ind(k))
+       !    print *, 'force_array(k, isimip_var) = ', force_array(k, isimip_var)
+       !    if (abs(tmp_grid(1, j_ind(k)) - force_array(k, isimip_var)) > 1.0e-5) then
+       !      print *, ' --> Mismatch!'
+       !    endif
+       !  endif
+       !enddo
 
     enddo
 
