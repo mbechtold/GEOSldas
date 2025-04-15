@@ -1,4 +1,4 @@
-#includg "MAPL_Generic.h"
+#include "MAPL_Generic.h"
 
 module LDAS_ForceMod
 
@@ -3195,8 +3195,8 @@ contains
     ! ISIMIP grid parameters
     integer, parameter :: isimip_grid_N_lon  = 720
     integer, parameter :: isimip_grid_N_lat  = 280
-    real,    parameter :: isimip_grid_ll_lon = -179.75
-    real,    parameter :: isimip_grid_ll_lat = -55.75
+    real,    parameter :: isimip_grid_ll_lon = -180.0
+    real,    parameter :: isimip_grid_ll_lat = -56.0
     real,    parameter :: isimip_grid_dlon   = 0.5
     real,    parameter :: isimip_grid_dlat   = 0.5
 
@@ -3299,7 +3299,7 @@ contains
     start(3) = hours_since_start + 1
     count(3) = 1
     
-    print *, "hours_since_start = ", hours_since_start, '+ 1'
+    print *, "hours_since_start (have to do + 1) = ", hours_since_start
     print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
 
 
