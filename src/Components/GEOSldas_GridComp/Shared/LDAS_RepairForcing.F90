@@ -235,7 +235,7 @@ contains
           ! NOTE: "warn" is turned on when repair_forcing is called first
           !        time after the forcing has been read from files
 
-          if ((warn) .and. (met_force(i)%Tair < 180.)) then
+          if ((warn) .and. (met_force(i)%Tair < 100.)) then
 
              write (tmpstr13a,'(e13.5)') met_force(i)%Tair    ! convert real to string
 
