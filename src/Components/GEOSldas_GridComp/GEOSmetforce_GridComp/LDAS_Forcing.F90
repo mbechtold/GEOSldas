@@ -3228,6 +3228,11 @@ contains
 
     integer, dimension(3) :: start, count
     integer, dimension(2) :: idx_min
+    
+    integer :: idset, iexp
+    logical :: file_found
+    character(len=40), dimension(9) :: dataset_prefixes
+    character(len=16), dimension(4) :: experiment_prefixes
 
     integer :: k, hours_since_start, isimip_var, ierr, ncid, varid
     real :: tol, this_lon, this_lat, min_val, max_val
@@ -3340,16 +3345,59 @@ contains
        write (YYYY, '(i4.4)') start_range_year
        write(end_year_str, '(i4)') end_range_year
 
-       ! Assemble the filename dynamically using the calculated years
-       fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_GSWP3-W5E5_historical_' // &
-               trim(adjustl(YYYY)) // '-' // trim(adjustl(end_year_str)) // '.nc4' 
 
-       if (root_logit) write (logunit,*) 'opening ' // trim(fname)
+       ! Initialize lists of possible dataset and experiment name pieces
+       dataset_prefixes = (/ &
+            'GSWP3-W5E5        ', &
+            '20CRv3-ERA5       ', &
+            '20CRv3-W5E5       ', &
+            '20CRv3            ', &
+            'GFDL-ESM4         ', &
+            'IPSL-CM6A-LR      ', &
+            'MPI-ESM1-2-HR     ', &
+            'MRI-ESM2-0        ', &
+            'UKESM1-0-LL       '  &
+            /)
 
-       ierr = NF_OPEN(fname, NF_NOWRITE, ncid)
+       experiment_prefixes = (/ &
+            'historical     ', &
+            'ssp126         ', &
+            'ssp370         ', &
+            'ssp585         '  &
+            /)
 
-       if (ierr /= 0) then
-          err_msg = 'error opening ISIMIP netcdf file'
+       ! Try all known dataset/experiment combinations until a file is found
+       file_found = .false.
+
+       do idset = 1, 9
+          do iexp = 1, 4
+
+             ! Update the year range to match the file naming convention
+             write (YYYY, '(i4.4)') start_range_year
+             write (end_year_str, '(i4.4)') end_range_year
+
+             ! Assemble the filename dynamically
+             fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_' // &
+                     trim(dataset_prefixes(idset)) // '_' // trim(experiment_prefixes(iexp)) // '_' // &
+                     trim(adjustl(YYYY)) // '-' // trim(adjustl(end_year_str)) // '.nc4'
+
+             if (root_logit) write (logunit,*) 'trying ' // trim(fname)
+
+             ierr = NF_OPEN(fname, NF_NOWRITE, ncid)
+
+             if (ierr == NF_NOERR) then
+                file_found = .true.
+                if (root_logit) write (logunit,*) ' -> opened ' // trim(fname)
+                exit
+             end if
+
+          end do
+          if (file_found) exit
+       end do
+
+       if (.not. file_found) then
+          err_msg = 'error opening ISIMIP netcdf file for variable ' // trim(isimip_name(isimip_var)) // &
+                    ' with any known dataset/experiment combination'
           call ldas_abort(LDAS_GENERIC_ERROR, Iam, err_msg)
        end if
 
