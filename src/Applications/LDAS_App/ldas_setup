@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
 import os
 import sys
 import glob
@@ -11,17 +11,88 @@ import fileinput
 import time
 import subprocess as sp
 import shlex
-from dateutil import rrule
+#from dateutil import rrule
 from datetime import datetime
 from datetime import timedelta
 from collections import OrderedDict
-from dateutil.relativedelta import relativedelta
+#from dateutil.relativedelta import relativedelta
+from calendar import monthrange
 
 
 """
 This script is intended to be run from any installed directory with GEOSldas.x and ldas_setup
 (The default setup is ../install/bin)
 """
+
+
+def add_one_month(dt):
+    """Return dt + 1 calendar month (same day when possible)."""
+
+    year = dt.year
+    month = dt.month + 1
+    day = dt.day
+
+    # wrap from December → January
+    if month > 12:
+        month = 1
+        year += 1
+
+    # clamp invalid days (e.g., Feb 30 → Feb 28)
+    max_day = monthrange(year, month)[1]
+    if day > max_day:
+        day = max_day
+
+    return dt.replace(year=year, month=month, day=day)
+
+
+def diff_ymdhms(dt1, dt0):
+    """Return (years, months, days, hours, minutes, seconds)
+       difference between dt1 and dt0 similar to relativedelta."""
+    
+    # Ensure dt1 >= dt0
+    if dt1 < dt0:
+        dt1, dt0 = dt0, dt1
+
+    # Start with full components
+    y = dt1.year  - dt0.year
+    m = dt1.month - dt0.month
+    d = dt1.day   - dt0.day
+    H = dt1.hour  - dt0.hour
+    M = dt1.minute- dt0.minute
+    S = dt1.second- dt0.second
+
+    # Fix negative seconds
+    if S < 0:
+        S += 60
+        M -= 1
+
+    # Fix negative minutes
+    if M < 0:
+        M += 60
+        H -= 1
+
+    # Fix negative hours
+    if H < 0:
+        H += 24
+        d -= 1
+
+    # Fix negative days
+    if d < 0:
+        # days in previous month of dt1
+        # handle month underflow
+        prev_month = dt1.month - 1 or 12
+        prev_year = dt1.year if dt1.month > 1 else dt1.year - 1
+
+        from calendar import monthrange
+        d += monthrange(prev_year, prev_month)[1]
+        m -= 1
+
+    # Fix negative months
+    if m < 0:
+        m += 12
+        y -= 1
+
+    return y, m, d, H, M, S
 
 
 class LDASsetup:
@@ -192,15 +263,10 @@ class LDASsetup:
 
         self.job_sgmt = []
         if 'JOB_SGMT' in self.rqdExeInp:
-            self.job_sgmt.append("JOB_SGMT: "+self.rqdExeInp['JOB_SGMT'])
+            self.job_sgmt.append("JOB_SGMT: " + self.rqdExeInp['JOB_SGMT'])
         else:
-            _datediff = relativedelta(self.endDates[0],self.begDates[0])
-            self.rqdExeInp['JOB_SGMT'] = "%04d%02d%02d %02d%02d%02d" %(_datediff.years,
-                                               _datediff.months,
-                                               _datediff.days,
-                                               _datediff.hours,
-                                               _datediff.minutes,
-                                               _datediff.seconds)
+            y, mo, d, h, mi, s = diff_ymdhms(self.endDates[0], self.begDates[0])
+            self.rqdExeInp['JOB_SGMT'] = "%04d%02d%02d %02d%02d%02d" % (y, mo, d, h, mi, s)
             self.job_sgmt.append("JOB_SGMT: "+self.rqdExeInp['JOB_SGMT'])
 
         if 'NUM_SGMT' not in self.rqdExeInp:
@@ -598,11 +664,11 @@ class LDASsetup:
             _start = self.begDates[iseg]
             _end = self.endDates[iseg]
 
-            # Yyyyy/Mmm between StartDateTime and EndDateTime
             newDate = _start
             y4m2_list = [('Y%4d/M%02d' % (newDate.year, newDate.month))]
-            while newDate<_end:
-                newDate += relativedelta(months=1)
+
+            while newDate < _end:
+                newDate = add_one_month(newDate)
                 y4m2_list.append('Y%4d/M%02d' % (newDate.year, newDate.month))
 
             # ExpDomain/ana/, /cat/ directories
@@ -1230,7 +1296,7 @@ class LDASsetup:
         fout.write("\nsed -i 's/#if($capdate<$enddate) sbatch/if($capdate<$enddate) sbatch /g' lenkf.j")
         fout.close()
 
-        os.chmod(self.rundir+'/ldas_batchrun.j', 0755) 
+        os.chmod(self.rundir+'/ldas_batchrun.j', 0755)
         status = True
         return status
 
