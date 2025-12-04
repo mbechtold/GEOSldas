@@ -3176,12 +3176,10 @@ contains
 
   !SA actual subroutine *************************************************
   
-  subroutine get_isimip_netcdf(date_time, met_path, N_catd, tile_coord, &
+subroutine get_isimip_netcdf(date_time, met_path, N_catd, tile_coord, &
      met_force_obs_tile_new, nodata_forcing)
 
     ! Read ISIMIP NetCDF files and extract forcing data in tile space
-    ! (Interpolation method to be finalized)
-    ! Placeholder for handling time resolution (likely hourly)
 
     implicit none
 
@@ -3200,118 +3198,73 @@ contains
     real,    parameter :: isimip_grid_dlon   = 0.5
     real,    parameter :: isimip_grid_dlat   = 0.5
 
-    integer, parameter :: dt_isimip_in_hours = 1  
+    integer, parameter :: dt_isimip_in_hours = 1
     real,    parameter :: nodata_isimip      = 1.e20
-    integer, allocatable :: land_mask(:)
-    logical :: is_leap
-    integer, dimension(12) :: month_hours
 
     ! Tzero variable based on comparison to cumulative daily snowfall
     real,    parameter :: Tzero              = 274.65 ! K
 
     character(40), dimension(7) :: isimip_name = &
          (/             &
-         'hurs       ', &  !  1 - state,  humidity,                %  
-         'pr         ', &  !  2 - flux,   precipitation,           mm hour-1  
-         'ps         ', &  !  3 - state,  air pressure,            hPa  
-         'rlds       ', &  !  4 - flux,   longwave radiation,      W m-2  
-         'rsds       ', &  !  5 - flux,   shortwave radiation,     W m-2  
-         'sfcwind    ', &  !  6 - state,  wind speed,              m s-1  
-         'tas        '  &  !  7 - state,  air temperature,         K  
+         'hurs       ', &  !  1 - state,  humidity,                %
+         'pr         ', &  !  2 - flux,   precipitation,           mm hour-1
+         'ps         ', &  !  3 - state,  air pressure,            hPa
+         'rlds       ', &  !  4 - flux,   longwave radiation,      W m-2
+         'rsds       ', &  !  5 - flux,   shortwave radiation,     W m-2
+         'sfcwind    ', &  !  6 - state,  wind speed,              m s-1
+         'tas        '  &  !  7 - state,  air temperature,         K
          /)
 
     integer, dimension(N_catd) :: i_ind, j_ind
-    real, dimension(N_catd) :: i_frac, j_frac
+    real,    dimension(N_catd) :: i_frac, j_frac
 
     real, dimension(isimip_grid_N_lon, isimip_grid_N_lat) :: tmp_grid
     real, dimension(N_catd, 7) :: force_array
 
     integer, dimension(3) :: start, count
-    integer, dimension(2) :: idx_min
-    
+
     integer :: idset, iexp
     logical :: file_found
     character(len=40), dimension(9) :: dataset_prefixes
     character(len=16), dimension(4) :: experiment_prefixes
 
     integer :: k, hours_since_start, isimip_var, ierr, ncid, varid
-    real :: tol, this_lon, this_lat, min_val, max_val
+    real    :: tol, this_lon, this_lat
     character(4) :: YYYY, HHMM
     character(2) :: MM, DD
     character(300) :: fname
-    character(4) :: new_year_str, end_year_str
-    integer :: start_year, start_range_year, end_range_year
+    integer :: file_start_year, file_end_year
+    integer :: start_range_year, end_range_year
+    character(len=4)  :: end_year_str
     character(len=40) :: varname
+    logical :: is_leap
+    integer, dimension(12) :: month_hours
 
     character(len=*), parameter :: Iam = 'get_isimip_netcdf'
     character(len=400) :: err_msg
 
     ! ----------------------------------------------------------------
+    ! Initialization
 
     nodata_forcing = nodata_isimip
-
     tol = abs(nodata_forcing * nodata_tolfrac_generic)
 
-    ! Assemble year and month strings
-
+    ! Assemble date/time strings (for logging / debug)
     write (YYYY, '(i4.4)') date_time%year
     write (MM,   '(i2.2)') date_time%month
     write (DD,   '(i2.2)') date_time%day
     write (HHMM, '(i4.4)') date_time%hour * 100 + date_time%min
 
-    ! Time indexing
+    ! Time step consistency check
     if ((date_time%min /= 0) .or. (date_time%sec /= 0) .or. &
          (mod(date_time%hour, dt_isimip_in_hours) /= 0)) then
        call ldas_abort(LDAS_GENERIC_ERROR, Iam, 'timing ERROR!!')
     endif
-    
-    ! Calculate start range year
-    start_year = date_time%year
-    start_range_year = ((start_year - 1) / 5) * 5 + 1
-    end_range_year = start_range_year + 4
-
-    ! Determine if the current year is a leap year
-    is_leap = (mod(date_time%year, 4) == 0 .and. mod(date_time%year, 100) /= 0) .or. (mod(date_time%year, 400) == 0)
-
-    ! Define month lengths in hours
-    month_hours = (/ 744, 672, 744, 720, 744, 720, 744, 744, 720, 744, 720, 744 /)  
-    if (is_leap) month_hours(2) = 696  ! Adjust February for leap years
-
-    ! Compute hours since the start of the reference period
-    hours_since_start = 0
- 
-    ! Add full years
-    do k = start_range_year, date_time%year - 1
-        if ((mod(k, 4) == 0 .and. mod(k, 100) /= 0) .or. mod(k, 400) == 0) then
-            hours_since_start = hours_since_start + 8784  ! Leap year
-        else
-            hours_since_start = hours_since_start + 8760  ! Normal year
-        end if
-    end do
- 
-    ! Add full months of the current year
-    do k = 1, date_time%month - 1
-        hours_since_start = hours_since_start + month_hours(k)
-    end do
- 
-    ! Add full days of the current month
-    hours_since_start = hours_since_start + (date_time%day - 1) * 24
- 
-    ! Add current hour
-    hours_since_start = hours_since_start + date_time%hour
- 
-    ! Correct time indexing for NetCDF
-    start(3) = hours_since_start + 1
-    count(3) = 1
-    
-    print *, "hours_since_start (have to do + 1) = ", hours_since_start
-    print *, "Actual simulated time: ", YYYY, "-", MM, "-", DD, ", ", HHMM
-
 
     ! ----------------------------------------------------------------
     ! Compute indices for nearest neighbor interpolation
-    
-    do k=1, N_catd
+
+    do k = 1, N_catd
        this_lon = tile_coord(k)%com_lon
        this_lat = tile_coord(k)%com_lat
 
@@ -3320,174 +3273,211 @@ contains
        ! Flip the latitude index so that 90° is at j=0 and -90° is at j=280 following ISIMIP
        j_ind(k) = isimip_grid_N_lat - floor((this_lat - isimip_grid_ll_lat) / isimip_grid_dlat)
 
-       ! Longitude wrapping: Correct i_ind(k) if it exceeds grid boundaries
+       ! Longitude wrapping
        if (i_ind(k) < 1) then
           i_ind(k) = isimip_grid_N_lon
        elseif (i_ind(k) > isimip_grid_N_lon) then
           i_ind(k) = 1
        endif
 
-       ! Latitude boundaries: Correct j_ind(k) if it exceeds grid boundaries
+       ! Latitude boundaries
        if (j_ind(k) < 1) then
           j_ind(k) = 1
        elseif (j_ind(k) > isimip_grid_N_lat) then
           j_ind(k) = isimip_grid_N_lat
        endif
-
     enddo
+
+    ! ----------------------------------------------------------------
+    ! Initialize dataset and experiment name pieces
+
+    dataset_prefixes = (/ &
+         'GSWP3-W5E5        ', &
+         '20CRv3-ERA5       ', &
+         '20CRv3-W5E5       ', &
+         '20CRv3            ', &
+         'GFDL-ESM4         ', &
+         'IPSL-CM6A-LR      ', &
+         'MPI-ESM1-2-HR     ', &
+         'MRI-ESM2-0        ', &
+         'UKESM1-0-LL       '  &
+         /)
+
+    experiment_prefixes = (/ &
+         'historical     ', &
+         'ssp126         ', &
+         'ssp370         ', &
+         'ssp585         '  &
+         /)
 
     ! ----------------------------------------------------------------
     ! Read each variable from corresponding file
 
     do isimip_var = 1, 7
 
-       ! Update the year range to match the file naming convention
-       write (YYYY, '(i4.4)') start_range_year
-       write(end_year_str, '(i4)') end_range_year
+       ! ----------------------------------------------------------------
+       ! Try to find a file whose year range [file_start_year, file_end_year]
+       ! contains the current simulation year (date_time%year).
+       ! This is flexible to 2011-2015, 2016-2019, 2020-2024, etc.
 
-
-       ! Initialize lists of possible dataset and experiment name pieces
-       dataset_prefixes = (/ &
-            'GSWP3-W5E5        ', &
-            '20CRv3-ERA5       ', &
-            '20CRv3-W5E5       ', &
-            '20CRv3            ', &
-            'GFDL-ESM4         ', &
-            'IPSL-CM6A-LR      ', &
-            'MPI-ESM1-2-HR     ', &
-            'MRI-ESM2-0        ', &
-            'UKESM1-0-LL       '  &
-            /)
-
-       experiment_prefixes = (/ &
-            'historical     ', &
-            'ssp126         ', &
-            'ssp370         ', &
-            'ssp585         '  &
-            /)
-
-       ! Try all known dataset/experiment combinations until a file is found
        file_found = .false.
 
-       do idset = 1, 9
-          do iexp = 1, 4
+       do file_start_year = date_time%year - 4, date_time%year
+          if (file_start_year < 0) cycle
 
-             ! Update the year range to match the file naming convention
-             write (YYYY, '(i4.4)') start_range_year
-             write (end_year_str, '(i4.4)') end_range_year
+          do file_end_year = date_time%year, date_time%year + 4
+             if (file_end_year < file_start_year) cycle
 
-             ! Assemble the filename dynamically
-             fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_' // &
-                     trim(dataset_prefixes(idset)) // '_' // trim(experiment_prefixes(iexp)) // '_' // &
-                     trim(adjustl(YYYY)) // '-' // trim(adjustl(end_year_str)) // '.nc4'
+             ! Only consider ranges that actually include the current year
+             if (date_time%year < file_start_year .or. date_time%year > file_end_year) cycle
 
-             if (root_logit) write (logunit,*) 'trying ' // trim(fname)
+             do idset = 1, 9
+                do iexp = 1, 4
 
-             ierr = NF_OPEN(fname, NF_NOWRITE, ncid)
+                   write (YYYY,        '(i4.4)') file_start_year
+                   write (end_year_str,'(i4.4)') file_end_year
 
-             if (ierr == NF_NOERR) then
-                file_found = .true.
-                if (root_logit) write (logunit,*) ' -> opened ' // trim(fname)
-                exit
-             end if
+                   fname = trim(met_path) // '/' // trim(isimip_name(isimip_var)) // '_' // &
+                           trim(dataset_prefixes(idset)) // '_' // trim(experiment_prefixes(iexp)) // '_' // &
+                           trim(adjustl(YYYY)) // '-' // trim(adjustl(end_year_str)) // '.nc4'
 
+                   if (root_logit) write (logunit,*) 'trying ' // trim(fname)
+
+                   ierr = NF_OPEN(fname, NF_NOWRITE, ncid)
+
+                   if (ierr == NF_NOERR) then
+                      file_found      = .true.
+                      start_range_year = file_start_year
+                      end_range_year   = file_end_year
+                      if (root_logit) write (logunit,*) ' -> opened ' // trim(fname)
+                      exit
+                   end if
+
+                end do
+                if (file_found) exit
+             end do
+             if (file_found) exit
           end do
           if (file_found) exit
        end do
 
        if (.not. file_found) then
           err_msg = 'error opening ISIMIP netcdf file for variable ' // trim(isimip_name(isimip_var)) // &
-                    ' with any known dataset/experiment combination'
+                    ' with any known dataset/experiment combination and year range'
           call ldas_abort(LDAS_GENERIC_ERROR, Iam, err_msg)
        end if
+
+       ! ----------------------------------------------------------------
+       ! Time indexing inside the chosen [start_range_year, end_range_year] file
+
+       hours_since_start = 0
+
+       ! Add full years between file start and current year - 1
+       do k = start_range_year, date_time%year - 1
+          if ( (mod(k, 4) == 0 .and. mod(k, 100) /= 0) .or. mod(k, 400) == 0 ) then
+             hours_since_start = hours_since_start + 8784   ! leap year
+          else
+             hours_since_start = hours_since_start + 8760   ! normal year
+          end if
+       end do
+
+       ! Month lengths in the current year
+       is_leap = (mod(date_time%year, 4) == 0 .and. mod(date_time%year, 100) /= 0) .or. &
+                 (mod(date_time%year, 400) == 0)
+
+       month_hours = (/ 744, 672, 744, 720, 744, 720, 744, 744, 720, 744, 720, 744 /)
+       if (is_leap) month_hours(2) = 696
+
+       ! Add full months of the current year
+       do k = 1, date_time%month - 1
+          hours_since_start = hours_since_start + month_hours(k)
+       end do
+
+       ! Add full days and current hour
+       hours_since_start = hours_since_start + (date_time%day - 1) * 24
+       hours_since_start = hours_since_start +  date_time%hour
+
+       start(3) = hours_since_start + 1
+       count(3) = 1
+
+       if (root_logit .and. isimip_var == 1) then
+          write (logunit,*) "hours_since_start (have to do + 1) = ", hours_since_start
+          write (logunit,*) "Actual simulated time: ", date_time%year, "-", date_time%month, "-", &
+                            date_time%day, ", ", date_time%hour, date_time%min
+       end if
+
+       ! ----------------------------------------------------------------
+       ! Read the variable from the opened NetCDF file
 
        varname = trim(isimip_name(isimip_var))
        ierr = NF_INQ_VARID(ncid, varname, varid)
        if (ierr /= NF_NOERR) then
-          print *, "Error: Variable ", trim(varname), " not found in file!"
+          write (*,*) "Error: Variable ", trim(varname), " not found in file!"
           call ldas_abort(LDAS_GENERIC_ERROR, Iam, "Variable missing!")
        endif
-       
-       ! set lat and lon indices for start and reading in netcdf 
+
+       ! Set lat and lon indices for start and reading in netcdf
        start(2) = 1
-       count(2) = 280
+       count(2) = isimip_grid_N_lat
        start(1) = 1
-       count(1) = 720
+       count(1) = isimip_grid_N_lon
 
        ierr = NF_GET_VARA_REAL(ncid, varid, start, count, tmp_grid)
        if (ierr /= NF_NOERR) then
-          print *, "Error reading variable ", trim(varname), " from file : ", trim(NF_STRERROR(ierr))
+          write (*,*) "Error reading variable ", trim(varname), " from file : ", trim(NF_STRERROR(ierr))
+          call ldas_abort(LDAS_GENERIC_ERROR, Iam, "Error reading NetCDF variable")
        endif
 
        ierr = NF_CLOSE(ncid)
-    
-       !print *, "Specific values of tmp_grid(1,:) before ocean filling:"
-       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
-       !print *, "Entire tmp_grid before ocean filling: ", tmp_grid
 
        ! Fill ocean pixels using nearest neighbor interpolation
-       call Fill_ocean_NN(tmp_grid, isimip_grid_N_lon, isimip_grid_N_lat, 1.0e20)
-       
-       !print *, "Specific values of tmp_grid(1,:) after ocean filling:"
-       !print *, tmp_grid(1, :)  ! Adjust depending on your dimensions 
-       !print *, "Entire tmp_grid after ocean filling: ", tmp_grid
+       call Fill_ocean_NN(tmp_grid, isimip_grid_N_lon, isimip_grid_N_lat, nodata_isimip)
 
-       ! Loop through tiles
+       ! Map grid to tiles
        do k = 1, N_catd
-         force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
+          force_array(k, isimip_var) = tmp_grid(i_ind(k), j_ind(k))
        enddo
 
-       !print *, '--- Comparing tmp_grid(1,:) to force_array(k, isimip_var) where i_ind(k) == 1 ---'
+    enddo   ! isimip_var loop
 
-       !do k = 1, N_catd
-       !  if (i_ind(k) == 1) then
-       !    print *, 'k = ', k, ', j_ind(k) = ', j_ind(k)
-       !    print *, 'tmp_grid(1, j_ind(k)) = ', tmp_grid(1, j_ind(k))
-       !    print *, 'force_array(k, isimip_var) = ', force_array(k, isimip_var)
-       !    if (abs(tmp_grid(1, j_ind(k)) - force_array(k, isimip_var)) > 1.0e-5) then
-       !      print *, ' --> Mismatch!'
-       !    endif
-       !  endif
-       !enddo
-
-    enddo
-
+    ! ----------------------------------------------------------------
     ! Convert forcing variables to match met_force_type units
-    met_force_obs_tile_new%Tair   = force_array(:, 7)                   ! Air Temperature [K]
-    met_force_obs_tile_new%Psurf  = force_array(:, 3) * 100.0           ! Convert hPa to Pa
-    met_force_obs_tile_new%Rainf  = force_array(:, 2) / 3600.0          ! Convert mm/hour to kg/m²/s
-    met_force_obs_tile_new%LWdown = force_array(:, 4)                   ! Longwave Radiation [W/m²]
-    met_force_obs_tile_new%SWdown = force_array(:, 5)                   ! Shortwave Radiation [W/m²]
-    met_force_obs_tile_new%Wind   = force_array(:, 6)                   ! Wind Speed [m/s]
+
+    met_force_obs_tile_new%Tair   = force_array(:, 7)             ! Air Temperature [K]
+    met_force_obs_tile_new%Psurf  = force_array(:, 3) * 100.0     ! hPa -> Pa
+    met_force_obs_tile_new%Rainf  = force_array(:, 2) / 3600.0    ! mm/hour -> kg/m²/s
+    met_force_obs_tile_new%LWdown = force_array(:, 4)             ! W/m²
+    met_force_obs_tile_new%SWdown = force_array(:, 5)             ! W/m²
+    met_force_obs_tile_new%Wind   = force_array(:, 6)             ! m/s
 
     ! Precipitation phase determination with proper unit conversion
     do k = 1, N_catd
-       
-       met_force_obs_tile_new(k)%Rainf_C = 0.                                 ! Convective rainfall set to zero
+       met_force_obs_tile_new(k)%Rainf_C = 0.0                    ! Convective rainfall set to zero
        if (met_force_obs_tile_new(k)%Tair < Tzero) then
-          met_force_obs_tile_new(k)%Rainf = 0.
-          met_force_obs_tile_new(k)%Snowf = force_array(k, 2) / 3600.0  ! Convert mm/hour to kg/m²/s
+          met_force_obs_tile_new(k)%Rainf = 0.0
+          met_force_obs_tile_new(k)%Snowf = force_array(k, 2) / 3600.0
        else
-          met_force_obs_tile_new(k)%Rainf = force_array(k, 2) / 3600.0  ! Convert mm/hour to kg/m²/s
-          met_force_obs_tile_new(k)%Snowf = 0.
+          met_force_obs_tile_new(k)%Rainf = force_array(k, 2) / 3600.0
+          met_force_obs_tile_new(k)%Snowf = 0.0
        endif
     enddo
-    
-    ! Before calling RH_to_SH, check for missing values:
+
+    ! ----------------------------------------------------------------
+    ! Relative humidity -> specific humidity, with missing-value check
+
     do k = 1, N_catd
-      if (force_array(k,1) /= nodata_isimip .and. &
-          force_array(k,7) /= nodata_isimip .and. &
-          force_array(k,3) /= nodata_isimip) then
-          !print *, "Calling RH_to_SH for k=", k
-          met_force_obs_tile_new(k)%Qair = RH_to_SH(force_array(k, 1), force_array(k, 7), force_array(k, 3) * 100.0)
-      else
-          print *, "Skipping RH_to_SH for k=", k, " due to missing data"
+       if (force_array(k,1) /= nodata_isimip .and. &
+           force_array(k,7) /= nodata_isimip .and. &
+           force_array(k,3) /= nodata_isimip) then
+          met_force_obs_tile_new(k)%Qair = RH_to_SH(force_array(k, 1), force_array(k, 7), &
+                                                   force_array(k, 3) * 100.0)
+       else
+          write (*,*) "Skipping RH_to_SH for k=", k, " due to missing data"
           met_force_obs_tile_new(k)%Qair = nodata_isimip
-      endif
+       endif
     enddo
 
-
-  end subroutine get_isimip_netcdf    
+  end subroutine get_isimip_netcdf
 
   ! *************************************************************************
   
